@@ -18,7 +18,6 @@ depends=(
     'at-spi2-core'
     'bash'
     'bubblewrap'
-    'hicolor-icon-theme'
     'libxcomposite'
     'libxkbcommon-x11'
     'libxrender'
