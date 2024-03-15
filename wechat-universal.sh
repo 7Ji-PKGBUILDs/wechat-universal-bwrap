@@ -18,6 +18,20 @@ env_add QT_QPA_PLATFORM xcb
 env_add PATH "/sandbox:${PATH}"
 env_add LC_ALL C
 
+dir_add() {
+  BWRAP_DIR_APPEND+=(--bind "$1" "$2")
+}
+BWRAP_DIR_APPEND=()
+# example: WECHAT_CUSTOM_DIRS="${HOME}/Desktop ${HOME}/Desktop:${HOME}/Downloads ${HOME}/Downloads"
+if [ ! -z "${WECHAT_CUSTOM_DIRS}" ]; then
+  for dir in $(IFS=':';echo ${WECHAT_CUSTOM_DIRS}); do
+    src="$(readlink -f ${dir%%" "*})"
+    dest="$(readlink -f ${dir##*" "})"
+    mkdir -p "${src}"
+    dir_add "${src}" "${dest}"
+  done
+fi
+
 case "${XMODIFIERS}" in 
     *@im=fcitx*)
         echo "Workaround for fcitx applied"
@@ -111,4 +125,4 @@ BWRAP_ARGS=(
     --ro-bind "${XDG_RUNTIME_DIR}/pulse"{,}
 )
 
-exec bwrap "${BWRAP_ARGS[@]}" "${BWRAP_DEV_BINDS[@]}" "${BWRAP_ENV_APPEND[@]}" /opt/wechat-universal/wechat "$@"
+exec bwrap "${BWRAP_ARGS[@]}" "${BWRAP_DEV_BINDS[@]}" "${BWRAP_DIR_APPEND[@]}" "${BWRAP_ENV_APPEND[@]}" /opt/wechat-universal/wechat "$@"
