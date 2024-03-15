@@ -16,6 +16,16 @@ BWRAP_ENV_APPEND=()
 # wechat-universal only support xcb
 env_add QT_QPA_PLATFORM xcb
 env_add PATH "/sandbox:${PATH}"
+env_add LC_ALL C
+
+if [[ ${XMODIFIERS} =~ fcitx ]]; then
+    env_add QT_IM_MODULE fcitx
+    env_add GTK_IM_MODULE fcitx
+elif [[ ${XMODIFIERS} =~ ibus ]]; then
+    env_add QT_IM_MODULE ibus
+    env_add GTK_IM_MODULE ibus
+    env_add IBUS_USE_PORTAL 1
+fi
 
 mkdir -p "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}"
 ln -snf "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}/xwechat_files"
@@ -26,6 +36,7 @@ BWRAP_ARGS=(
     --share-net
     --cap-drop ALL
     --die-with-parent
+
     # /usr
     --ro-bind /usr{,}
     --symlink usr/lib /lib
@@ -33,18 +44,27 @@ BWRAP_ARGS=(
     --symlink usr/bin /bin
     --symlink usr/bin /sbin
     --bind /usr/bin/{true,lsblk}
+
     # /sandbox
     --ro-bind /{usr/lib/flatpak-xdg-utils,sandbox}/xdg-open
     --ro-bind /{usr/share/wechat-universal/usr/bin,sandbox}/dde-file-manager
+
     # /dev
     --dev /dev
     --dev-bind /dev/dri{,}
     --dev-bind-try /dev/nvidiactl{,}
     --dev-bind-try /dev/nvidia0{,}
     --dev-bind-try /dev/nvidia-uvm{,}
+    $(
+        for video in $(ls /dev/video*); do
+            echo "--dev-bind $video $video"
+        done
+    )
     --tmpfs /dev/shm
+
     # /proc
     --proc /proc
+
     # /etc
     --ro-bind /etc/machine-id{,}
     --ro-bind /etc/passwd{,}
@@ -52,18 +72,23 @@ BWRAP_ARGS=(
     --ro-bind /etc/resolv.conf{,}
     --ro-bind /etc/localtime{,}
     --ro-bind-try /etc/fonts{,}
+
     # /sys, for va-api: https://aur.archlinux.org/packages/wechat-universal-bwrap#comment-961215
     --ro-bind /sys/dev{,}
     --ro-bind /sys/devices{,}
+
     # /tmp
     --tmpfs /tmp
+
     # /opt, Wechat-beta itself
     --ro-bind /opt/wechat-universal{,}
+
     # license fixups in various places
     --ro-bind {/usr/share/wechat-universal,}/usr/lib/license
     --ro-bind {/usr/share/wechat-universal,}/var/
     --ro-bind {/usr/share/wechat-universal,}/etc/os-release
     --ro-bind {/usr/share/wechat-universal,}/etc/lsb-release
+
     # /home
     --bind "${WECHAT_HOME_DIR}" "${HOME}"
     --bind "${WECHAT_FILES_DIR}"{,}
@@ -74,6 +99,7 @@ BWRAP_ARGS=(
     --ro-bind-try "${HOME}/.local/share/fonts"{,}
     --ro-bind-try "${HOME}/.icons"{,}
     --ro-bind-try "${HOME}/.local/share/.icons"{,}
+    
     # /run
     --dev-bind /run/dbus{,}
     --ro-bind /run/systemd/userdb{,}
