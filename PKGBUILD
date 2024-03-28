@@ -1,6 +1,6 @@
 # Maintainer: 7Ji <pugokushin at gmail dot com>
 # Maintainer: leaeasy <leaeasy at gmail dot com>
-# Contributor: devome <evinedeng at hotmail dot com>
+# Maintainer: devome <evinedeng at hotmail dot com>
 
 _pkgname=wechat-universal
 pkgname=${_pkgname}-bwrap
@@ -22,10 +22,8 @@ depends=(
     'libxcomposite'
     'libxkbcommon-x11'
     'libxrandr'
-    'lsb-release'
     'mesa'
     'nss'
-    'openssl-1.1'
     'pango'
     'xcb-util-image'
     'xcb-util-keysyms'
@@ -91,6 +89,7 @@ package() {
         xz -cdT0 |
         bsdtar -xpC "${pkgdir}" ./opt/apps/com.tencent.wechat
     mv "${pkgdir}"/opt/{apps/com.tencent.wechat/files,"${_pkgname}"}
+    rm "${pkgdir}/opt/${_pkgname}/libuosdevicea.so"
 
     echo 'Installing icons...'
     for res in 16 32 48 64 128 256; do
