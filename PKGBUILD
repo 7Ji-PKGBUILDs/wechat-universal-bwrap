@@ -89,7 +89,7 @@ package() {
         xz -cdT0 |
         bsdtar -xpC "${pkgdir}" ./opt/apps/com.tencent.wechat
     mv "${pkgdir}"/opt/{apps/com.tencent.wechat/files,"${_pkgname}"}
-    rm "${pkgdir}/opt/${_pkgname}/libuosdevicea.so"
+    rm "${pkgdir}/opt/${_pkgname}/${_lib_uos}.so"
 
     echo 'Installing icons...'
     for res in 16 32 48 64 128 256; do
