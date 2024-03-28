@@ -57,11 +57,16 @@ done
 # Custom exposed folders
 echo "Hint: Custom binds could be declared in '~/.config/wechat-universal/binds.list', each line a path, absolute or relative to your HOME"
 BWRAP_CUSTOM_BINDS=()
-while IFS='' read -r CUSTOM_BIND || [[ "${CUSTOM_BIND}" ]]; do
-    CUSTOM_BIND=$(readlink -f -- "${CUSTOM_BIND}")
-    echo "Custom bind: '${CUSTOM_BIND}'"
-    BWRAP_CUSTOM_BINDS+=(--bind "${CUSTOM_BIND}"{,})
-done < ~/.config/wechat-universal/binds.list
+if [[ -f ~/.config/wechat-universal/binds.list ]]; then
+    mapfile -t CUSTOM_BINDS < ~/.config/wechat-universal/binds.list
+    cd ~ # 7Ji: two chdir.3 should be cheaper than a lot of per-dir calculation
+    for CUSTOM_BIND in "${CUSTOM_BINDS[@]}"; do
+        CUSTOM_BIND=$(readlink -f -- "${CUSTOM_BIND}")
+        echo "Custom bind: '${CUSTOM_BIND}'"
+        BWRAP_CUSTOM_BINDS+=(--bind "${CUSTOM_BIND}"{,})
+    done
+    cd - > /dev/null
+fi
 
 mkdir -p "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}"
 ln -snf "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}/xwechat_files"
@@ -111,7 +116,7 @@ BWRAP_ARGS=(
 
     # /opt
     --ro-bind /opt/wechat-universal{,}
-    --ro-bind-try /opt/lol{,} # LoongArch64 (WeChat) on Loong64 (LoongArchLinux)
+    --ro-bind-try /opt/lol{,} # Loong New World (WeChat) on Loong Old World (LoongArchLinux)
 
     # license fixups in various places
     --ro-bind {/usr/share/wechat-universal,}/usr/lib/license
@@ -137,3 +142,5 @@ BWRAP_ARGS=(
 )
 
 exec bwrap "${BWRAP_ARGS[@]}" "${BWRAP_CUSTOM_BINDS[@]}" "${BWRAP_DEV_BINDS[@]}" "${BWRAP_ENV_APPEND[@]}" /opt/wechat-universal/wechat "$@"
+echo "Error: Failed to exec bwrap, rerun this script with 'bash -x $0' to show the full command history"
+exit 1

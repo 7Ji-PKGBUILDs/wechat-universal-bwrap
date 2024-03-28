@@ -5,7 +5,7 @@
 _pkgname=wechat-universal
 pkgname=${_pkgname}-bwrap
 pkgver=1.0.0.238
-pkgrel=14
+pkgrel=15
 pkgdesc="WeChat (Universal) with bwrap sandbox"
 arch=('x86_64' 'aarch64' 'loong64')
 url="https://weixin.qq.com"
@@ -32,7 +32,7 @@ depends=(
     'xdg-desktop-portal'
     'xdg-user-dirs'
 )
-options=(!strip !debug emptydirs)
+options=(!strip !debug emptydirs) # emptydirs for /usr/lib/license (see below)
 
 _lib_uos='libuosdevicea'
 
@@ -62,7 +62,7 @@ noextract=("${_deb_stem}"_{x86_64,aarch64,loong64}.deb)
 
 sha256sums=(
     'b25598b64964e4a38f8027b9e8b9a412c6c8d438a64f862d1b72550ac8c75164'
-    '47f84b67e8b84cd2276c239f289a53e437adcffd04a1a86b264c2d48d43400d0'
+    'f223c7271fba3829b06ceee14912063ad05d8ea286940006bce1b7b0e4fd48c1'
     'b783b7b0035efb5a0fcb4ddba6446f645a4911e4a9f71475e408a5c87ef04c30'
     'a8dd9bbb41968fc023a27467bccf45c9a7264dbf0b6cf85c3533b02c81f3fa03'
 )
@@ -101,9 +101,10 @@ package() {
 
     echo 'Fixing licenses...'
     local _wechat_root="${pkgdir}/usr/share/${_pkgname}"
-    install -dm755 {"${pkgdir}","${_wechat_root}"}/{etc,usr/lib/license}
+    install -dm755 "${pkgdir}"/usr/lib/license # This is needed if /usr/lib/license/${_lib_uos}.so needs to be mounted in sandbox
     install -Dm755 {,"${_wechat_root}"/usr/lib/license/}"${_lib_uos}.so"
-    echo 'DISTRIB_ID=uos' > "${_wechat_root}"/etc/lsb-release
+    echo 'DISTRIB_ID=uos' |
+        install -Dm755 /dev/stdin "${_wechat_root}"/etc/lsb-release
 
     echo 'Installing fake deepin file manager...'
     install -Dm755 {fake_,"${_wechat_root}"/usr/bin/}dde-file-manager
