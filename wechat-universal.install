@@ -2,17 +2,22 @@
 
 _pkgname=wechat-universal
 
-all_off="$(tput sgr0)"
-bold="${all_off}$(tput bold)"
-blue="${bold}$(tput setaf 4)"
-yellow="${bold}$(tput setaf 3)"
-
-note() {
-    printf "${blue}==>${yellow} NOTE:${bold} $1${all_off}\n"
-}
+if tput setaf 0 &>/dev/null; then
+    all_off="$(tput sgr0)"
+    bold="${all_off}$(tput bold)"
+    blue="${bold}$(tput setaf 4)"
+    yellow="${bold}$(tput setaf 3)"
+    eval "note() {
+        printf '${blue}==>${yellow} NOTE:${bold} %s${all_off}\n' \"\$@\"
+    }" # avoid run-time expanding
+else
+    note() {
+        printf '==> NOTE: %s\n' "$@"
+    }
+fi
 
 post_install() {
-    if [[ "$LANG" == "zh_CN.UTF-8" ]]; then
+    if [[ "${LANG}" == zh_CN* ]]; then
         note "采用 bubblewrap 沙盒运行微信，对于家目录，默认只能对 '\$XDG_DOCUMENTS_DIR/WeChat_Data' 读写...
           如需增加更多的读写目录，请在 '~/.config/${_pkgname}/binds.list' 文件（如不存在请自行创建）中增加...
           一个路径一行，可以使用绝对路径，形如：/home/username/music
