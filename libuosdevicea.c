@@ -1,6 +1,7 @@
 /*
  * licensestub - compat layer for libuosdevicea
  * Copyright (C) 2024 Zephyr Lykos <self@mochaa.ws>
+ * Copyright (C) 2024 Guoxin "7Ji" Pu <pugokushin@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,44 +22,20 @@
 
 #include <string.h>
 
-// MAC address with colon stripped
-void uos_get_mac(char* out) {
-    if (out) {
-        strcpy(out, "000000000000");
-    }
-}
+#define declare_string_getter(suffix, constant) void uos_get_##suffix(char *const restrict out) { if (out) strcpy(out, constant); }
 
-void uos_get_hddsninfo(char* out) {
-    if (out) {
-        strcpy(out, "SN");
-    }
-}
-
-// MD5 of hddsninfo
-void uos_get_hwserial(char* out) {
-    if (out) {
-        strcpy(out, "92666505ce75444ee14be2ebc2f10a60");
-    }
-}
-
-// Hardcoded
-void uos_get_mb_sn(char* out) {
-    if (out) {
-        strcpy(out, "E50022008800015957007202c59a1a8-3981-2020-0810-204909000000");
-    }
-}
-
-void uos_get_osver(char* out) {
-    if (out) {
-        strcpy(out, "UnionTech OS Desktop");
-    }
-}
-
-void uos_get_licensetoken(char* out) {
-    if (out) {
-        strcpy(out, "djEsdjEsMSwyLDk5QUFFN0FBQVdRQjk5OFhKS0FIU1QyOTQsMTAsOTI2NjY1MDVjZTc1NDQ0ZWUxNGJlMmViYzJmMTBhNjAsQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE6ZjA3NjAwYzZkNmMyMDkyMDBkMzE5YzU2OThmNTc3MGRlYWY1NjAyZTY5MzUxZTczNjI2NjlhNzIyZTBkNTJiOTNhYzk0MmM3YTNkZTgxNjIxMmUwMDA1NTUwODg4N2NlMDQ4ODMyNTExY2JhNGFiMjdmYzlmZjMyYzFiNTYwNjMwZDI3ZDI2NmE5ZGIxZDQ0N2QxYjNlNTNlNTVlOTY1MmU5YTU4OGY0NWYzMTMwZDE0NDc4MTRhM2FmZjRlZGNmYmNkZjhjMmFiMDc5OWYwNGVmYmQ2NjdiNGYwYzEwNDhkYzExNjYwZWU1NTdlNTdmNzBlNjA1N2I0NThkMDgyOA==");
-    }
-}
+declare_string_getter(mac,      // MAC address with colon stripped
+    "000000000000")
+declare_string_getter(hddsninfo,
+    "SN")
+declare_string_getter(hwserial, // MD5 of hddsninfo
+    "92666505ce75444ee14be2ebc2f10a60")
+declare_string_getter(mb_sn,    // hardcoded
+    "E50022008800015957007202c59a1a8-3981-2020-0810-204909000000")
+declare_string_getter(osver, 
+    "UnionTech OS Desktop")
+declare_string_getter(licensetoken, 
+    "djEsdjEsMSwyLDk5QUFFN0FBQVdRQjk5OFhKS0FIU1QyOTQsMTAsOTI2NjY1MDVjZTc1NDQ0ZWUxNGJlMmViYzJmMTBhNjAsQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE6ZjA3NjAwYzZkNmMyMDkyMDBkMzE5YzU2OThmNTc3MGRlYWY1NjAyZTY5MzUxZTczNjI2NjlhNzIyZTBkNTJiOTNhYzk0MmM3YTNkZTgxNjIxMmUwMDA1NTUwODg4N2NlMDQ4ODMyNTExY2JhNGFiMjdmYzlmZjMyYzFiNTYwNjMwZDI3ZDI2NmE5ZGIxZDQ0N2QxYjNlNTNlNTVlOTY1MmU5YTU4OGY0NWYzMTMwZDE0NDc4MTRhM2FmZjRlZGNmYmNkZjhjMmFiMDc5OWYwNGVmYmQ2NjdiNGYwYzEwNDhkYzExNjYwZWU1NTdlNTdmNzBlNjA1N2I0NThkMDgyOA==")
 
 int uos_is_active() {
     return 0;

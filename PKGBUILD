@@ -5,7 +5,7 @@
 _pkgname=wechat-universal
 pkgname=${_pkgname}-bwrap
 pkgver=1.0.0.241
-pkgrel=1
+pkgrel=2
 pkgdesc="WeChat (Universal) with bwrap sandbox"
 arch=('x86_64' 'aarch64' 'loong64')
 url="https://weixin.qq.com"
@@ -32,6 +32,9 @@ depends=(
     'xdg-desktop-portal'
     'xdg-user-dirs'
 )
+if [[ "${CARCH}" == loong64 ]]; then # This is needed instead of a plain declaration because AUR web would return all depends regardless of client's arch, AUR helpers would thus refuse to build the package on non-loong64 due to missing liblol
+    depends_loong64=('liblol')
+fi
 options=(!strip !debug emptydirs) # emptydirs for /usr/lib/license (see below)
 
 _lib_uos='libuosdevicea'
@@ -62,9 +65,9 @@ noextract=("${_deb_stem}"_{x86_64,aarch64,loong64}.deb)
 
 sha256sums=(
     'b25598b64964e4a38f8027b9e8b9a412c6c8d438a64f862d1b72550ac8c75164'
-    'f223c7271fba3829b06ceee14912063ad05d8ea286940006bce1b7b0e4fd48c1'
+    '659485bdee618cf58809f8d022d8238231656b2a0c590742f4527b0f81f0fd19'
     'b783b7b0035efb5a0fcb4ddba6446f645a4911e4a9f71475e408a5c87ef04c30'
-    'a8dd9bbb41968fc023a27467bccf45c9a7264dbf0b6cf85c3533b02c81f3fa03'
+    'fc3ce9eb8dee3ee149233ebdb844d3733b2b2a8664422d068cf39b7fb08138f8'
 )
 
 sha256sums_x86_64=(
@@ -79,8 +82,11 @@ sha256sums_loong64=(
 
 build() {
     echo "Building ${_lib_uos}.so stub by Zephyr Lykos..."
-    gcc -fPIC -shared "${_lib_uos}.c" -o "${_lib_uos}.so"
-    strip "${_lib_uos}.so"
+    (
+        set -o xtrace
+        gcc ${CFLAGS} ${LDFLAGS} -fPIC -shared "${_lib_uos}.c" -o "${_lib_uos}.so.unstripped"
+        strip "${_lib_uos}.so.unstripped" -o "${_lib_uos}.so"
+    )
 }
 
 package() {
