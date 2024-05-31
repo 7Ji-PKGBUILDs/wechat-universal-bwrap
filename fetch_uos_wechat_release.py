@@ -149,8 +149,6 @@ architectures=(
     Architecture('loongarch64', 'loong64')
 )
 
-
-
 url_appstore='https://home-store-packages.uniontech.com/appstore'
 session = requests.Session()
 
