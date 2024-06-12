@@ -72,12 +72,11 @@ class Architecture:
         if wechat is None:
             raise Exception(f"Failed to find package com.tencent.wechat for arch '{self.arch_uos}'")
 
-        filename = None
         for line in package.split(b'\n'):
             if line.startswith(b'Version: '):
                 self.version = line[9:].decode('utf-8')
             elif line.startswith(b'Filename: '):
-                filename = line[10:].decode('utf-8')
+                self.file = line[10:].decode('utf-8')
             elif line.startswith(b'Size: '):
                 self.size = int(line[6:])
             elif line.startswith(b'SHA256: '):
@@ -88,10 +87,10 @@ class Architecture:
                 self.md5 = line[8:].decode('utf-8')
         if self.version is None:
             raise Exception("Failed to get version")
-        if filename is None:
+        if self.file is None:
             raise Exception(f"Failed to get remote filename")
-        self.url = f"{url_appstore}/{filename}"
-        self.file = f"wechat-universal_{self.version}_{self.arch_archlinux}.deb"
+        self.url = f"{url_appstore}/{self.file}"
+        self.file = self.file.rsplit('/', 1)[-1]
         if self.size is None:
             raise Exception("Failed to get size")
         
@@ -155,7 +154,7 @@ session = requests.Session()
 for architecture in architectures:
     architecture.fetch(url_appstore, session)
 for architecture in architectures:
-    print(f"source_{architecture.arch_archlinux}=(\n\t'{architecture.file}::{architecture.url}'\n)")
+    print(f"source_{architecture.arch_archlinux}=(\n\t'{architecture.url}'\n)")
 for architecture in architectures:
     print(f"sha256sums_{architecture.arch_archlinux}=(\n\t'{architecture.sha256}'\n)")
 for architecture in architectures:

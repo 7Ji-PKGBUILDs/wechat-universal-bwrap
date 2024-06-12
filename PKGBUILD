@@ -43,23 +43,15 @@ source=(
     "fake_dde-file-manager"
     "${_pkgname}.sh"
     "${_pkgname}.desktop"
-    "${_lib_uos}.c"
+    "${_lib_uos}".{c,Makefile}
 )
 
 _deb_url_common="https://home-store-packages.uniontech.com/appstore/pool/appstore/c/com.tencent.wechat/com.tencent.wechat_${pkgver}"
 _deb_stem="${_pkgname}_${pkgver}"
 
-source_x86_64=(
-    "${_deb_stem}_x86_64.deb::${_deb_url_common}_amd64.deb"
-)
-
-source_aarch64=(
-    "${_deb_stem}_aarch64.deb::${_deb_url_common}_arm64.deb"
-)
-
-source_loong64=(
-    "${_deb_stem}_loong64.deb::${_deb_url_common}_loongarch64.deb"
-)
+source_x86_64=("${_deb_url_common}_amd64.deb")
+source_aarch64=("${_deb_url_common}_arm64.deb")
+source_loong64=("${_deb_url_common}_loongarch64.deb")
 
 noextract=("${_deb_stem}"_{x86_64,aarch64,loong64}.deb)
 
@@ -68,6 +60,7 @@ sha256sums=(
     '659485bdee618cf58809f8d022d8238231656b2a0c590742f4527b0f81f0fd19'
     'b783b7b0035efb5a0fcb4ddba6446f645a4911e4a9f71475e408a5c87ef04c30'
     'fc3ce9eb8dee3ee149233ebdb844d3733b2b2a8664422d068cf39b7fb08138f8'
+    'f05f6f907898740dab9833c1762e56dbc521db3c612dd86d2e2cd4b81eb257bf'
 )
 
 sha256sums_x86_64=(
@@ -80,20 +73,25 @@ sha256sums_loong64=(
     '90c3276fd8e338eb50162bcb0eef9a41cb553187851d0d5f360e3d010138c8b9'
 )
 
+prepare() {
+    echo 'Extracting data.tar from deb...'
+    bsdtar -xOf *.deb ./data.tar.xz |
+        xz -cd > data.tar
+    echo 'Preparing to compile libuosdevica.so...'
+    mkdir -p "${_lib_uos}"
+    mv "${_lib_uos}"{.c,/}
+    mv "${_lib_uos}"{.Makefile,/Makefile}
+}
+
 build() {
+    cd "${_lib_uos}"
     echo "Building ${_lib_uos}.so stub by Zephyr Lykos..."
-    (
-        set -o xtrace
-        gcc ${CFLAGS} ${LDFLAGS} -fPIC -shared "${_lib_uos}.c" -o "${_lib_uos}.so.unstripped"
-        strip "${_lib_uos}.so.unstripped" -o "${_lib_uos}.so"
-    )
+    make
 }
 
 package() {
     echo 'Popupating pkgdir with data from wechat-universal deb file...'
-    bsdtar -xOf "${_deb_stem}_${CARCH}.deb" ./data.tar.xz |
-        xz -cdT0 |
-        bsdtar -xpC "${pkgdir}" ./opt/apps/com.tencent.wechat
+    tar -C "${pkgdir}" --no-same-owner -xf data.tar ./opt/apps/com.tencent.wechat
     mv "${pkgdir}"/opt/{apps/com.tencent.wechat/files,"${_pkgname}"}
     rm "${pkgdir}/opt/${_pkgname}/${_lib_uos}.so"
 
@@ -108,7 +106,7 @@ package() {
     echo 'Fixing licenses...'
     local _wechat_root="${pkgdir}/usr/share/${_pkgname}"
     install -dm755 "${pkgdir}"/usr/lib/license # This is needed if /usr/lib/license/${_lib_uos}.so needs to be mounted in sandbox
-    install -Dm755 {,"${_wechat_root}"/usr/lib/license/}"${_lib_uos}.so"
+    install -Dm755 {"${_lib_uos}","${_wechat_root}"/usr/lib/license}"/${_lib_uos}.so"
     echo 'DISTRIB_ID=uos' |
         install -Dm755 /dev/stdin "${_wechat_root}"/etc/lsb-release
 
