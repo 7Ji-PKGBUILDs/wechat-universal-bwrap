@@ -46,14 +46,14 @@ source=(
     "${_lib_uos}".{c,Makefile}
 )
 
-_deb_url_common="https://home-store-packages.uniontech.com/appstore/pool/appstore/c/com.tencent.wechat/com.tencent.wechat_${pkgver}"
-_deb_stem="${_pkgname}_${pkgver}"
+_deb_stem="com.tencent.wechat_${pkgver}"
+_deb_url_common="https://home-store-packages.uniontech.com/appstore/pool/appstore/c/com.tencent.wechat/${_deb_stem}"
 
 source_x86_64=("${_deb_url_common}_amd64.deb")
 source_aarch64=("${_deb_url_common}_arm64.deb")
 source_loong64=("${_deb_url_common}_loongarch64.deb")
 
-noextract=("${_deb_stem}"_{x86_64,aarch64,loong64}.deb)
+noextract=("${_deb_stem}"_{amd,arm,loongarch}64.deb)
 
 sha256sums=(
     'b25598b64964e4a38f8027b9e8b9a412c6c8d438a64f862d1b72550ac8c75164'
