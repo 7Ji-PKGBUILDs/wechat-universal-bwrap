@@ -74,8 +74,20 @@ sha256sums_loong64=(
 )
 
 prepare() {
+    local _arch
+    case "${CARCH}" in
+        x86_64)
+            _arch=amd64
+            ;;
+        aarch64)
+            _arch=arm64
+            ;;
+        loong64)
+            _arch=loongarch64
+            ;;
+    esac
     echo 'Extracting data.tar from deb...'
-    bsdtar -xOf *.deb ./data.tar.xz |
+    bsdtar -xOf "${_deb_stem}_${_arch}.deb" ./data.tar.xz |
         xz -cd > data.tar
     echo 'Preparing to compile libuosdevica.so...'
     mkdir -p "${_lib_uos}"
