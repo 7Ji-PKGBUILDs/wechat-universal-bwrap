@@ -4,8 +4,8 @@
 
 _pkgname=wechat-universal
 pkgname=${_pkgname}-bwrap
-pkgver=1.0.0.241
-pkgrel=2
+pkgver=1.0.0.242
+pkgrel=1
 pkgdesc="WeChat (Universal) with bwrap sandbox"
 arch=('x86_64' 'aarch64' 'loong64')
 url="https://weixin.qq.com"
@@ -46,14 +46,16 @@ source=(
     "${_lib_uos}".{c,Makefile}
 )
 
-_deb_stem="com.tencent.wechat_${pkgver}"
+_rpm_stem="wechat-beta_${pkgver}"
+_rpm_url_common="https://mirrors.opencloudos.tech/opencloudos/9.2/extras/x86_64/os/Packages/${_rpm_stem}"
+_deb_stem="com.tencent.wechat_1.0.0.241"
 _deb_url_common="https://home-store-packages.uniontech.com/appstore/pool/appstore/c/com.tencent.wechat/${_deb_stem}"
 
-source_x86_64=("${_deb_url_common}_amd64.deb")
-source_aarch64=("${_deb_url_common}_arm64.deb")
+source_x86_64=("${_rpm_url_common}_amd64.rpm")
+source_aarch64=("${_rpm_url_common}_arm64.rpm")
 source_loong64=("${_deb_url_common}_loongarch64.deb")
 
-noextract=("${_deb_stem}"_{amd,arm,loongarch}64.deb)
+noextract=("${_rpm_stem}"_{amd,arm}64.rpm "${_deb_stem}"_loongarch64.deb )
 
 sha256sums=(
     'b25598b64964e4a38f8027b9e8b9a412c6c8d438a64f862d1b72550ac8c75164'
@@ -64,10 +66,10 @@ sha256sums=(
 )
 
 sha256sums_x86_64=(
-    '2768a97376f2073bd515ef81d64fa7b20668fa6c11a4177a2ed17fc9b03398a3'
+    'ff97d711f3c71cbe86ef93e1d04a681af5c3e95e0188f4b411064ced2819d719'
 )
 sha256sums_aarch64=(
-    'e4a0387a4855757a229ffed586e31b1bc5c8971d30eef1c079d6757e704e058a'
+    '8961d5a61e3006438d140accd88a04f72796cc1c147e048b1751e03e5ce4f4ed'
 )
 sha256sums_loong64=(
     '90c3276fd8e338eb50162bcb0eef9a41cb553187851d0d5f360e3d010138c8b9'
@@ -76,14 +78,11 @@ sha256sums_loong64=(
 prepare() {
     local _arch
     case "${CARCH}" in
-        x86_64)
-            _arch=amd64
-            ;;
-        aarch64)
-            _arch=arm64
-            ;;
         loong64)
             _arch=loongarch64
+            ;;
+        *)
+            return
             ;;
     esac
     echo 'Extracting data.tar from deb...'
@@ -102,18 +101,35 @@ build() {
 }
 
 package() {
-    echo 'Popupating pkgdir with data from wechat-universal deb file...'
-    tar -C "${pkgdir}" --no-same-owner -xf data.tar ./opt/apps/com.tencent.wechat
-    mv "${pkgdir}"/opt/{apps/com.tencent.wechat/files,"${_pkgname}"}
-    rm "${pkgdir}/opt/${_pkgname}/${_lib_uos}.so"
+    local _arch=
+    case "${CARCH}" in
+        x86_64)
+            _arch=amd64
+            ;;
+        aarch64)
+            _arch=arm64
+            ;;
+    esac
+    if [[ "${_arch}" ]]; then
+        echo 'Popupating pkgdir with data from wechat-universal rpm file...'
+        bsdtar -C "${pkgdir}" --no-same-owner -xf "${_rpm_stem}_${_arch}.rpm" ./opt/wechat-beta
+        install -DTm644 "${pkgdir}"/opt/wechat-beta/icons/wechat.png "${pkgdir}/usr/share/icons/hicolor/256x256/apps/${_pkgname}.png"
+        rm -rf "${pkgdir}/opt/wechat-beta/icons"
+        mv "${pkgdir}"/opt/{wechat-beta,"${_pkgname}"}
+    else
+        echo 'Popupating pkgdir with data from wechat-universal deb file...'
+        tar -C "${pkgdir}" --no-same-owner -xf data.tar ./opt/apps/com.tencent.wechat
+        mv "${pkgdir}"/opt/{apps/com.tencent.wechat/files,"${_pkgname}"}
+        rm "${pkgdir}/opt/${_pkgname}/${_lib_uos}.so"
 
-    echo 'Installing icons...'
-    for res in 16 32 48 64 128 256; do
-        install -Dm644 \
-            "${pkgdir}/opt/apps/com.tencent.wechat/entries/icons/hicolor/${res}x${res}/apps/com.tencent.wechat.png" \
-            "${pkgdir}/usr/share/icons/hicolor/${res}x${res}/apps/${_pkgname}.png"
-    done
-    rm -rf "${pkgdir}"/opt/apps
+        echo 'Installing icons...'
+        for res in 16 32 48 64 128 256; do
+            install -Dm644 \
+                "${pkgdir}/opt/apps/com.tencent.wechat/entries/icons/hicolor/${res}x${res}/apps/com.tencent.wechat.png" \
+                "${pkgdir}/usr/share/icons/hicolor/${res}x${res}/apps/${_pkgname}.png"
+        done
+        rm -rf "${pkgdir}"/opt/apps
+    fi
 
     echo 'Fixing licenses...'
     local _wechat_root="${pkgdir}/usr/share/${_pkgname}"
