@@ -76,18 +76,18 @@ sha256sums_loong64=(
 )
 
 prepare() {
-    local _arch
+    local _arch=
     case "${CARCH}" in
         loong64)
             _arch=loongarch64
             ;;
         *)
-            return
-            ;;
     esac
-    echo 'Extracting data.tar from deb...'
-    bsdtar -xOf "${_deb_stem}_${_arch}.deb" ./data.tar.xz |
-        xz -cd > data.tar
+    if [[ "${_arch}" ]]; then
+        echo 'Extracting data.tar from deb...'
+        bsdtar -xOf "${_deb_stem}_${_arch}.deb" ./data.tar.xz |
+            xz -cd > data.tar
+    fi
     echo 'Preparing to compile libuosdevica.so...'
     mkdir -p "${_lib_uos}"
     mv "${_lib_uos}"{.c,/}
