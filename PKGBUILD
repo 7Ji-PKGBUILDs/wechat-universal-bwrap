@@ -5,7 +5,7 @@
 _pkgname=wechat-universal
 pkgname=${_pkgname}-bwrap
 pkgver=1.0.0.242
-pkgrel=1
+pkgrel=2
 pkgdesc="WeChat (Universal) with bwrap sandbox"
 arch=('x86_64' 'aarch64' 'loong64')
 url="https://weixin.qq.com"
@@ -47,12 +47,13 @@ source=(
 )
 
 _rpm_stem="wechat-beta_${pkgver}"
-_rpm_url_common="https://mirrors.opencloudos.tech/opencloudos/9.2/extras/x86_64/os/Packages/${_rpm_stem}"
+_rpm_url_common_1="https://mirrors.opencloudos.tech/opencloudos/9.2/extras/"
+_rpm_url_common_2="/os/Packages/${_rpm_stem}"
 _deb_stem="com.tencent.wechat_1.0.0.241"
 _deb_url_common="https://home-store-packages.uniontech.com/appstore/pool/appstore/c/com.tencent.wechat/${_deb_stem}"
 
-source_x86_64=("${_rpm_url_common}_amd64.rpm")
-source_aarch64=("${_rpm_url_common}_arm64.rpm")
+source_x86_64=("${_rpm_url_common_1}x86_64${_rpm_url_common_2}_amd64.rpm")
+source_aarch64=("${_rpm_url_common_1}aarch64${_rpm_url_common_2}_arm64.rpm")
 source_loong64=("${_deb_url_common}_loongarch64.deb")
 
 noextract=("${_rpm_stem}"_{amd,arm}64.rpm "${_deb_stem}"_loongarch64.deb )
