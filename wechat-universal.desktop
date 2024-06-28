@@ -1,12 +1,12 @@
 [Desktop Entry]
 Comment=WeChat Universal
 Comment[zh_CN]=
-TryExec=wechat-universal
-Exec=wechat-universal %u
+TryExec=/usr/lib/wechat-universal/start.sh
+Exec=/usr/lib/wechat-universal/start.sh %u
 Icon=wechat-universal
 Name=WeChat (Universal)
 Name[zh_CN]=微信 Universal
-Categories=Utility;Network;InstantMessaging;Chat;
+Categories=Network;InstantMessaging;Chat;
 Terminal=false
 Type=Application
 Keywords=wechat;weixin;we;w;
@@ -19,5 +19,5 @@ Actions=quit;
 [Desktop Action quit]
 Name=Quit WeChat
 Name[zh_CN]=退出
-Exec=bash -c '/usr/bin/killall wechat'
+Exec=/usr/lib/wechat-universal/stop.sh
 Icon=application-exit

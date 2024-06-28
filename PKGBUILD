@@ -5,15 +5,14 @@
 _pkgname=wechat-universal
 pkgname=${_pkgname}-bwrap
 pkgver=1.0.0.242
-pkgrel=2
+pkgrel=3
 pkgdesc="WeChat (Universal) with bwrap sandbox"
 arch=('x86_64' 'aarch64' 'loong64')
 url="https://weixin.qq.com"
 license=('proprietary' 'GPLv3') # GPLv3 as desktop-app was statically linked-in, refer: https://aur.archlinux.org/packages/wechat-universal-bwrap#comment-964013
 provides=("${_pkgname}")
-conflicts=("${_pkgname}"{,-privileged})
+conflicts=("${_pkgname}")
 replaces=('wechat-beta'{,-bwrap})
-install="${_pkgname}.install"
 depends=(
     'alsa-lib'
     'at-spi2-core'
@@ -60,8 +59,8 @@ noextract=("${_rpm_stem}"_{amd,arm}64.rpm "${_deb_stem}"_loongarch64.deb )
 
 sha256sums=(
     'b25598b64964e4a38f8027b9e8b9a412c6c8d438a64f862d1b72550ac8c75164'
-    '659485bdee618cf58809f8d022d8238231656b2a0c590742f4527b0f81f0fd19'
-    'b783b7b0035efb5a0fcb4ddba6446f645a4911e4a9f71475e408a5c87ef04c30'
+    '2952566e4c2ae5c454e865b1005872441a0dd933d7aa26bbed8add177c877c8e'
+    '0563472cf2c74710d1fe999d397155f560d3ed817e04fd9c35077ccb648e1880'
     'fc3ce9eb8dee3ee149233ebdb844d3733b2b2a8664422d068cf39b7fb08138f8'
     'f05f6f907898740dab9833c1762e56dbc521db3c612dd86d2e2cd4b81eb257bf'
 )
@@ -133,16 +132,20 @@ package() {
     fi
 
     echo 'Fixing licenses...'
-    local _wechat_root="${pkgdir}/usr/share/${_pkgname}"
+    local _wechat_root="${pkgdir}/usr/lib/${_pkgname}"
     install -dm755 "${pkgdir}"/usr/lib/license # This is needed if /usr/lib/license/${_lib_uos}.so needs to be mounted in sandbox
     install -Dm755 {"${_lib_uos}","${_wechat_root}"/usr/lib/license}"/${_lib_uos}.so"
     echo 'DISTRIB_ID=uos' |
         install -Dm755 /dev/stdin "${_wechat_root}"/etc/lsb-release
+
+    echo 'Installing scripts...'
+    install -Dm755 wechat-universal.sh "${_wechat_root}"/common.sh
+    ln -s common.sh "${_wechat_root}"/start.sh
+    ln -s common.sh "${_wechat_root}"/stop.sh
 
     echo 'Installing fake deepin file manager...'
     install -Dm755 {fake_,"${_wechat_root}"/usr/bin/}dde-file-manager
 
     echo 'Installing desktop files...'
     install -Dm644 "${_pkgname}.desktop" "${pkgdir}/usr/share/applications/${_pkgname}.desktop"
-    install -Dm755 "${_pkgname}.sh" "${pkgdir}/usr/bin/${_pkgname}"
 }
