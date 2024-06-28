@@ -255,7 +255,7 @@ try_start() {
         --ro-bind-try "${HOME}/.config/fontconfig"{,}
         --ro-bind-try "${HOME}/.local/share/fonts"{,}
         --ro-bind-try "${HOME}/.icons"{,}
-        --ro-bind-try "${HOME}/.local/share/.icons"{,}
+        --ro-bind-try "${HOME}/.local/share/icons"{,}
 
         # /run
         --dev-bind /run/dbus{,}
