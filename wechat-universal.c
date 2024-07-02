@@ -44,6 +44,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <getopt.h>
+#include <locale.h>
 #include <linux/limits.h>
 #include <systemd/sd-bus-protocol.h>
 #include <systemd/sd-bus.h>
@@ -274,10 +275,114 @@ free_bus:
     return r;
 }
 
+void help(
+    char const *const restrict arg0
+) {
+    char *lang;
+    bool cn;
+     
+    lang = getenv("LANG");
+    cn = lang && !strncmp(lang, "zh_CN", 5);
+    fputs(arg0, stdout);
+    // These would be collapsed at runtime
+    if (cn) {
+        puts(""
+            " (--data [微信数据文件夹])"
+            " (--bind [自定义绑定挂载] (--bind ...)))"
+            " (--ime [输入法])"
+            " (--help)\n\n"
+            "    --"
+            "data [微信数据文件夹]\t"
+                "微信数据文件夹的路径，绝对路径，或相对于用户HOME的相对路径。"
+                "默认："
+                    "~/文档/Wechat_Data；"
+                "环境变量："
+                    "WECHAT_DATA_DIR\n"
+            "    --"
+            "bind [自定义绑定挂载]\t"
+                "自定义的绑定挂载，可被声明多次，绝对路径，"
+                "或相对于用户HOME的相对路径。"
+                "环境变量："
+                    "CUSTOM_BINDS （用冒号:分隔，与PATH相似）\n"
+            "    --"
+            "binds-config [文件]\t"
+                "以每行一个的方式列明应被绑定挂载的路径的纯文本配置文件，"
+                "每行定义与--bind一致。"
+                "默认："
+                    "~/.config/wechat-universal/binds.list；"
+                "环境变量："
+                    "CUSTOM_BINDS_CONFIG\n"
+            "    --"
+            "ime [输入法名称或特殊值]\t"
+                "应用输入法对应环境变量修改，可支持："
+                    "fcitx (不论是否为5), "
+                    "ibus，"
+                "特殊值："
+                    "none不应用，"
+                    "auto自动判断。"
+                "默认："
+                    "auto；"
+                "环境变量："
+                    "IME_WORKAROUND\n"
+            "    --"
+            "help\n");
+    } else {
+        puts(""
+            " (--data [wechat data])"
+            " (--bind [custom bind] (--bind ...)))"
+            " (--ime [ime])"
+            " (--help)\n\n"
+            "    --"
+            "data [wechat data]\t"
+                "Path to Wechat_Data folder, absolute path, or relative path "
+                "to user home, "
+                "default: "
+                    "~/Documents/Wechat_Data, "
+                "as environment: "
+                    "WECHAT_DATA_DIR\n"
+            "    --"
+            "bind [custom bind]\t"
+                "Custom bindings, could be specified multiple times, absolute "
+                "path, or relative path to user home, "
+                "as environment: "
+                    "CUSTOM_BINDS (colon ':' seperated like PATH)\n"
+            "    --"
+            "binds-config [file]\t"
+                "Path to text file that contains one --bind value per line, "
+                "default: "
+                    "~/.config/wechat-universal/binds.list, "
+                "as environment: "
+                    "CUSTOM_BINDS_CONFIG\n"
+            "    --"
+            "ime [input method]\t"
+                "Apply IME-specific workaround, "
+                "support: "
+                    "fcitx (also for 5), "
+                    "ibus, "
+                "default: "
+                    "auto, "
+                "as environment: "
+                    "IME_WORKAROUND\n"
+            "    --"
+            "help\n");
+    }
+}
+
 int applet_start(
     int argc, 
     char *argv[]
 ) {
+    int i;
+
+    // Early quit for --help
+    for (i = 0; i < argc; ++i) {
+        if (!strncmp(argv[i], "--help", 7)) {
+            help(argv[0]);
+            return 0;
+        }
+    }
+    // Help = early quit
+
     // int i;
     // for (i = 0; i < argc; ++i) {
     //     if (!strncmp(argv[i], "--help", 7)) {
