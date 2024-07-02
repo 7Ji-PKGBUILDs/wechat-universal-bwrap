@@ -61,11 +61,12 @@
 #define DBUS_PATH_NOTIFIER "/StatusNotifierItem"
 #define DBUS_INTERFACE_PROPERTIES "org.freedesktop.DBus.Properties"
 #define DBUS_METHOD_GET "Get"
-#define DBUS_ARG_ITEM "org.kde.StatusNotifierItem"
+#define DBUS_INTERFACE_NOTIFIER "org.kde.StatusNotifierItem"
+#define DBUS_ARG_ITEM DBUS_INTERFACE_NOTIFIER
 #define DBUS_ARG_ID "Id"
 #define ID_WECHAT "wechat"
 #define LEN_ID_WECHAT sizeof(ID_WECHAT) - 1
-#define DBUS_PREFIX_NOTIFIER "org.kde.StatusNotifierItem-"
+#define DBUS_PREFIX_NOTIFIER  DBUS_INTERFACE_NOTIFIER "-"
 #define LEN_DBUS_PREFIX_NOTIFIER sizeof(DBUS_PREFIX_NOTIFIER) - 1
 #define DBUS_PATH_MENUBAR "/MenuBar"
 #define DBUS_INTERFACE_MENU "com.canonical.dbusmenu"
@@ -74,6 +75,7 @@
 #define DBUS_EVENT_TYPE_CLICKED "clicked"
 #define DBUS_EVENT_DATA "Quit WeCaht"
 #define DBUS_TIMESTAMP 0
+#define DBUS_METHOD_ACTIVATE "Activate"
 
 #define println(format, arg...) printf(format"\n", ##arg)
 #define println_with_prefix(prefix, format, arg...) \
@@ -101,12 +103,106 @@ declare_types(STRING, SD_BUS_TYPE_STRING);
 declare_types(INT32_STRING_VARIANT_UINT32, 
     SD_BUS_TYPE_INT32, SD_BUS_TYPE_STRING, SD_BUS_TYPE_VARIANT, \
     SD_BUS_TYPE_UINT32);
+declare_types(INT32_INT32, SD_BUS_TYPE_INT32, SD_BUS_TYPE_INT32);
 
 enum applet {
     AppletInvalid,
     AppletStart,
     AppletStop,
 };
+
+void help_start(
+    char const *const restrict arg0
+) {
+    char *lang;
+    bool cn;
+     
+    lang = getenv("LANG");
+    cn = lang && !strncmp(lang, "zh_CN", 5);
+    fputs(arg0, stdout);
+    // These would be collapsed at runtime
+    if (cn) {
+        puts(""
+            " (--data [微信数据文件夹])"
+            " (--bind [自定义绑定挂载] (--bind ...)))"
+            " (--ime [输入法])"
+            " (--help)\n\n"
+            "    --"
+            "data [微信数据文件夹]\t"
+                "微信数据文件夹的路径，绝对路径，或相对于用户HOME的相对路径。"
+                "默认："
+                    "~/文档/Wechat_Data；"
+                "环境变量："
+                    "WECHAT_DATA_DIR\n"
+            "    --"
+            "bind [自定义绑定挂载]\t"
+                "自定义的绑定挂载，可被声明多次，绝对路径，"
+                "或相对于用户HOME的相对路径。"
+                "环境变量："
+                    "CUSTOM_BINDS （用冒号:分隔，与PATH相似）\n"
+            "    --"
+            "binds-config [文件]\t"
+                "以每行一个的方式列明应被绑定挂载的路径的纯文本配置文件，"
+                "每行定义与--bind一致。"
+                "默认："
+                    "~/.config/wechat-universal/binds.list；"
+                "环境变量："
+                    "CUSTOM_BINDS_CONFIG\n"
+            "    --"
+            "ime [输入法名称或特殊值]\t"
+                "应用输入法对应环境变量修改，可支持："
+                    "fcitx (不论是否为5), "
+                    "ibus，"
+                "特殊值："
+                    "none不应用，"
+                    "auto自动判断。"
+                "默认："
+                    "auto；"
+                "环境变量："
+                    "IME_WORKAROUND\n"
+            "    --"
+            "help\n");
+    } else {
+        puts(""
+            " (--data [wechat data])"
+            " (--bind [custom bind] (--bind ...)))"
+            " (--ime [ime])"
+            " (--help)\n\n"
+            "    --"
+            "data [wechat data]\t"
+                "Path to Wechat_Data folder, absolute path, or relative path "
+                "to user home, "
+                "default: "
+                    "~/Documents/Wechat_Data, "
+                "as environment: "
+                    "WECHAT_DATA_DIR\n"
+            "    --"
+            "bind [custom bind]\t"
+                "Custom bindings, could be specified multiple times, absolute "
+                "path, or relative path to user home, "
+                "as environment: "
+                    "CUSTOM_BINDS (colon ':' seperated like PATH)\n"
+            "    --"
+            "binds-config [file]\t"
+                "Path to text file that contains one --bind value per line, "
+                "default: "
+                    "~/.config/wechat-universal/binds.list, "
+                "as environment: "
+                    "CUSTOM_BINDS_CONFIG\n"
+            "    --"
+            "ime [input method]\t"
+                "Apply IME-specific workaround, "
+                "support: "
+                    "fcitx (also for 5), "
+                    "ibus, "
+                "default: "
+                    "auto, "
+                "as environment: "
+                    "IME_WORKAROUND\n"
+            "    --"
+            "help\n");
+    }
+}
 
 char const *get_env_or_default(
     char const *const restrict name, 
@@ -156,7 +252,7 @@ bool is_wechat(
         println_error_with_dbus("Failed to read D-Bus message", r);
         goto free_reply;
     }
-    if (id && !strncmp(id, ID_WECHAT, LEN_ID_WECHAT)) {
+    if (id && !strncmp(id, ID_WECHAT, LEN_ID_WECHAT + 1)) {
         is_or_not = true;
     }
 free_reply:
@@ -268,104 +364,94 @@ int applet_stop() {
         goto free_bus;
     }
     r = stop_notifier(bus, notifier);
-free_notifier:
     free(notifier);
 free_bus:
     sd_bus_flush_close_unref(bus);
     return r;
 }
 
-void help(
-    char const *const restrict arg0
+
+int activate_notifier(
+    sd_bus *const restrict bus,
+    char const *const restrict notifier
 ) {
-    char *lang;
-    bool cn;
-     
-    lang = getenv("LANG");
-    cn = lang && !strncmp(lang, "zh_CN", 5);
-    fputs(arg0, stdout);
-    // These would be collapsed at runtime
-    if (cn) {
-        puts(""
-            " (--data [微信数据文件夹])"
-            " (--bind [自定义绑定挂载] (--bind ...)))"
-            " (--ime [输入法])"
-            " (--help)\n\n"
-            "    --"
-            "data [微信数据文件夹]\t"
-                "微信数据文件夹的路径，绝对路径，或相对于用户HOME的相对路径。"
-                "默认："
-                    "~/文档/Wechat_Data；"
-                "环境变量："
-                    "WECHAT_DATA_DIR\n"
-            "    --"
-            "bind [自定义绑定挂载]\t"
-                "自定义的绑定挂载，可被声明多次，绝对路径，"
-                "或相对于用户HOME的相对路径。"
-                "环境变量："
-                    "CUSTOM_BINDS （用冒号:分隔，与PATH相似）\n"
-            "    --"
-            "binds-config [文件]\t"
-                "以每行一个的方式列明应被绑定挂载的路径的纯文本配置文件，"
-                "每行定义与--bind一致。"
-                "默认："
-                    "~/.config/wechat-universal/binds.list；"
-                "环境变量："
-                    "CUSTOM_BINDS_CONFIG\n"
-            "    --"
-            "ime [输入法名称或特殊值]\t"
-                "应用输入法对应环境变量修改，可支持："
-                    "fcitx (不论是否为5), "
-                    "ibus，"
-                "特殊值："
-                    "none不应用，"
-                    "auto自动判断。"
-                "默认："
-                    "auto；"
-                "环境变量："
-                    "IME_WORKAROUND\n"
-            "    --"
-            "help\n");
-    } else {
-        puts(""
-            " (--data [wechat data])"
-            " (--bind [custom bind] (--bind ...)))"
-            " (--ime [ime])"
-            " (--help)\n\n"
-            "    --"
-            "data [wechat data]\t"
-                "Path to Wechat_Data folder, absolute path, or relative path "
-                "to user home, "
-                "default: "
-                    "~/Documents/Wechat_Data, "
-                "as environment: "
-                    "WECHAT_DATA_DIR\n"
-            "    --"
-            "bind [custom bind]\t"
-                "Custom bindings, could be specified multiple times, absolute "
-                "path, or relative path to user home, "
-                "as environment: "
-                    "CUSTOM_BINDS (colon ':' seperated like PATH)\n"
-            "    --"
-            "binds-config [file]\t"
-                "Path to text file that contains one --bind value per line, "
-                "default: "
-                    "~/.config/wechat-universal/binds.list, "
-                "as environment: "
-                    "CUSTOM_BINDS_CONFIG\n"
-            "    --"
-            "ime [input method]\t"
-                "Apply IME-specific workaround, "
-                "support: "
-                    "fcitx (also for 5), "
-                    "ibus, "
-                "default: "
-                    "auto, "
-                "as environment: "
-                    "IME_WORKAROUND\n"
-            "    --"
-            "help\n");
+    int r;
+    r = sd_bus_call_method(
+        bus, notifier, DBUS_PATH_NOTIFIER, 
+        DBUS_INTERFACE_NOTIFIER, DBUS_METHOD_ACTIVATE, 
+        NULL, NULL, 
+        TYPES_INT32_INT32,
+        0, // X-cord to show window, wechat does not care
+        0  // Y-cord to show window, wechat does not care
+    );
+    if (r < 0) {
+        println_error_with_dbus("Failed to call D-Bus ListNames method", r);
+        return -1;
     }
+    return 0;
+}
+
+// int cli_start(
+//     int argc, 
+//     char *argv[]
+// ) {
+//     int c, option_index = 0;
+//     struct option const long_options[] = {
+//         {"data",            required_argument,  NULL,   'd'},
+//         {"bind",            required_argument,  NULL,   'b'},
+//         {"binds-config",    required_argument,  NULL,   'B'},
+//         {"ime",             required_argument,  NULL,   'i'},
+//         {"help",            no_argument,        NULL,   'h'},
+//         {NULL,              no_argument,        NULL,     0},
+//     };
+//     while ((c = getopt_long(argc, argv, "d:b:B:i:h", 
+//         long_options, &option_index)) != -1) 
+//     {
+//         switch (c) {
+//         case 'd': // --data
+//             interval = strtoul(optarg, NULL, 10);
+//             break;
+//         case 'b': // --bind
+//             show_version();
+//             return 0;
+//         case 'B': // --binds-config
+//             break;
+//         case 'i': // --ime
+//             show_help(argv[0]);
+//             return 0;
+//         case 'h':
+//             break;
+//         default:
+//             println_error("Unknown option '%s'", argv[optind - 1]);
+//             return -1;
+//         }
+//     }
+//     return 0;
+// }
+
+int try_move_foreground() {
+    sd_bus *bus;
+    char *notifier;
+    int r = -1;
+
+    println_info("Trying to find existing WeChat session and move it to "
+                "foreground if it exists");
+    bus = get_bus();
+    if (!bus) {
+        return -1;
+    }
+    notifier = get_notifier(bus);
+    if (!notifier) {
+        println_warn("Couldn't find notifier item of WeChat, either it was not "
+            "started or our D-Bus queries failed");
+        goto free_bus;
+    }
+    r = activate_notifier(bus, notifier);
+    free(notifier);
+free_bus:
+    sd_bus_flush_close_unref(bus);
+    return r;
+
 }
 
 int applet_start(
@@ -377,52 +463,14 @@ int applet_start(
     // Early quit for --help
     for (i = 0; i < argc; ++i) {
         if (!strncmp(argv[i], "--help", 7)) {
-            help(argv[0]);
+            help_start(argv[0]);
             return 0;
         }
     }
-    // Help = early quit
+    if (!try_move_foreground()) return 0;
 
-    // int i;
-    // for (i = 0; i < argc; ++i) {
-    //     if (!strncmp(argv[i], "--help", 7)) {
-    //         return 0;
-    //     }
-    // }
-    // int c, option_index = 0;
-    // struct option const long_options[] = {
-    //     {"data",            required_argument,  NULL,   'd'},
-    //     {"bind",            required_argument,  NULL,   'b'},
-    //     {"binds-config",    required_argument,  NULL,   'B'},
-    //     {"ime",             required_argument,  NULL,   'i'},
-    //     {"help",            no_argument,        NULL,   'h'},
-    //     {NULL,              no_argument,        NULL,     0},
-    // };
-    // while ((c = getopt_long(argc, argv, "d:b:B:i:h", 
-    //     long_options, &option_index)) != -1) 
-    // {
-    //     switch (c) {
-    //     case 'd':
-    //         interval = strtoul(optarg, NULL, 10);
-    //         break;
-    //     case 'b':   // version
-    //         show_version();
-    //         return 0;
-    //     case 'B':
-    //     case 'i':
-    //         show_help(argv[0]);
-    //         return 0;
-    //     default:
-    //         println_error("Unknown option '%s'", argv[optind - 1]);
-    //         return -1;
-    //     }
-    // }
-    // (void) bus;
-    // (void) argc;
-    // (void) argv;
-    // DBusConnection *dbus_connection = get_dbus_connection();
-    // if (!dbus_connection) return -1;
     return 0;
+    // return cli_start(argc, argv);
 }
 
 enum applet applet_from_arg0(
