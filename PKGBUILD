@@ -18,6 +18,7 @@ depends=(
     'at-spi2-core'
     'bubblewrap'
     'flatpak-xdg-utils'
+    'libsystemd.so'
     'libxcomposite'
     'libxkbcommon-x11'
     'libxrandr'
