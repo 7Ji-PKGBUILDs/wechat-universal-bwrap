@@ -38,6 +38,7 @@
  */
 
 #define _DEFAULT_SOURCE
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,6 +46,8 @@
 #include <errno.h>
 #include <getopt.h>
 #include <locale.h>
+#include <unistd.h>
+#include <pwd.h>
 #include <linux/limits.h>
 #include <systemd/sd-bus-protocol.h>
 #include <systemd/sd-bus.h>
@@ -76,6 +79,11 @@
 #define DBUS_EVENT_DATA "Quit WeCaht"
 #define DBUS_TIMESTAMP 0
 #define DBUS_METHOD_ACTIVATE "Activate"
+
+#define ENV_DATA    "WECHAT_DATA_DIR"
+#define ENV_BINDS   "CUSTOM_BINDS"
+#define ENV_BINDS_CONFIG "CUSTOM_BINDS_CONFIG"
+#define ENV_IME     "IME_WORKAROUND"
 
 #define println(format, arg...) printf(format"\n", ##arg)
 #define println_with_prefix(prefix, format, arg...) \
@@ -111,6 +119,23 @@ enum applet {
     AppletStop,
 };
 
+enum ime {
+    ImeNone,
+    ImeAuto,
+    ImeFcitx,
+    ImeIbus
+};
+
+struct binds_list {
+    char *buffer;
+    size_t buffer_used, 
+        buffer_allocated, 
+        *offsets, 
+        offsets_count, 
+        offsets_allocated,
+        len_home;
+};
+
 void help_start(
     char const *const restrict arg0
 ) {
@@ -131,15 +156,15 @@ void help_start(
             "data [微信数据文件夹]\t"
                 "微信数据文件夹的路径，绝对路径，或相对于用户HOME的相对路径。"
                 "默认："
-                    "~/文档/Wechat_Data；"
+                    "~/Documents/Wechat_Data；"
                 "环境变量："
-                    "WECHAT_DATA_DIR\n"
+                    ENV_DATA"\n"
             "    --"
             "bind [自定义绑定挂载]\t"
                 "自定义的绑定挂载，可被声明多次，绝对路径，"
                 "或相对于用户HOME的相对路径。"
                 "环境变量："
-                    "CUSTOM_BINDS （用冒号:分隔，与PATH相似）\n"
+                    ENV_BINDS" （用冒号:分隔，与PATH相似）\n"
             "    --"
             "binds-config [文件]\t"
                 "以每行一个的方式列明应被绑定挂载的路径的纯文本配置文件，"
@@ -147,7 +172,7 @@ void help_start(
                 "默认："
                     "~/.config/wechat-universal/binds.list；"
                 "环境变量："
-                    "CUSTOM_BINDS_CONFIG\n"
+                    ENV_BINDS_CONFIG"\n"
             "    --"
             "ime [输入法名称或特殊值]\t"
                 "应用输入法对应环境变量修改，可支持："
@@ -159,7 +184,7 @@ void help_start(
                 "默认："
                     "auto；"
                 "环境变量："
-                    "IME_WORKAROUND\n"
+                    ENV_IME"\n"
             "    --"
             "help\n");
     } else {
@@ -175,20 +200,20 @@ void help_start(
                 "default: "
                     "~/Documents/Wechat_Data, "
                 "as environment: "
-                    "WECHAT_DATA_DIR\n"
+                    ENV_DATA"\n"
             "    --"
             "bind [custom bind]\t"
                 "Custom bindings, could be specified multiple times, absolute "
                 "path, or relative path to user home, "
                 "as environment: "
-                    "CUSTOM_BINDS (colon ':' seperated like PATH)\n"
+                    ENV_BINDS" (colon ':' seperated like PATH)\n"
             "    --"
             "binds-config [file]\t"
                 "Path to text file that contains one --bind value per line, "
                 "default: "
                     "~/.config/wechat-universal/binds.list, "
                 "as environment: "
-                    "CUSTOM_BINDS_CONFIG\n"
+                    ENV_BINDS_CONFIG"\n"
             "    --"
             "ime [input method]\t"
                 "Apply IME-specific workaround, "
@@ -198,7 +223,7 @@ void help_start(
                 "default: "
                     "auto, "
                 "as environment: "
-                    "IME_WORKAROUND\n"
+                    ENV_IME"\n"
             "    --"
             "help\n");
     }
@@ -391,43 +416,290 @@ int activate_notifier(
     return 0;
 }
 
-// int cli_start(
-//     int argc, 
-//     char *argv[]
-// ) {
-//     int c, option_index = 0;
-//     struct option const long_options[] = {
-//         {"data",            required_argument,  NULL,   'd'},
-//         {"bind",            required_argument,  NULL,   'b'},
-//         {"binds-config",    required_argument,  NULL,   'B'},
-//         {"ime",             required_argument,  NULL,   'i'},
-//         {"help",            no_argument,        NULL,   'h'},
-//         {NULL,              no_argument,        NULL,     0},
-//     };
-//     while ((c = getopt_long(argc, argv, "d:b:B:i:h", 
-//         long_options, &option_index)) != -1) 
-//     {
-//         switch (c) {
-//         case 'd': // --data
-//             interval = strtoul(optarg, NULL, 10);
-//             break;
-//         case 'b': // --bind
-//             show_version();
-//             return 0;
-//         case 'B': // --binds-config
-//             break;
-//         case 'i': // --ime
-//             show_help(argv[0]);
-//             return 0;
-//         case 'h':
-//             break;
-//         default:
-//             println_error("Unknown option '%s'", argv[optind - 1]);
-//             return -1;
-//         }
-//     }
-//     return 0;
-// }
+int binds_list_init(
+    struct binds_list *const restrict list
+) {
+    struct passwd *passwd;
+
+    if (!(passwd = getpwuid(getuid()))) {
+        println_error_with_errno("Failed to get passwd entry of current user");
+        return -1;
+    }
+    if (!passwd->pw_dir && !passwd->pw_dir[0]) {
+        println_error("Current user does not have valid home directory");
+        return -1;
+    }
+    list->len_home = strnlen(passwd->pw_dir, PATH_MAX);
+    if (list->len_home == PATH_MAX) {
+        --list->len_home;
+    }
+    if (!(list->buffer = malloc(list->buffer_allocated = PATH_MAX))) {
+        println_error_with_errno("Failed to allocate memory for binds list");
+        return -1;
+    }
+    if (!(list->offsets = malloc(
+        (list->offsets_allocated = 16) * sizeof *list->offsets))
+    ) {
+        println_error_with_errno("Failed to allocate memory for binds list");
+        free(list->buffer);
+        return -1;
+    }
+    memcpy(list->buffer, passwd->pw_dir, list->len_home);
+    list->buffer[list->len_home] = '\0';
+    list->buffer_used = list->len_home + 1;
+    list->offsets_count = 0;
+    return 0;
+}
+
+int binds_list_add(
+    struct binds_list *const restrict list,
+    char const *const restrict name,
+    size_t const len_name
+) {
+    size_t offset_null, new_used, new_count;
+    void *buffer;
+    bool need_home;
+
+    offset_null = list->buffer_used + len_name;
+    if ((need_home = name[0] != '\0')) {
+        offset_null += list->len_home + 1;
+    }
+    if ((new_used = offset_null + 1) > list->buffer_allocated) {
+        do {
+            if (list->buffer_allocated == SIZE_MAX) {
+                println_error("Impossible to allocate memory for more buffer");
+                return -1;
+            } else if (list->buffer_allocated >= SIZE_MAX / 2) {
+                list->buffer_allocated = SIZE_MAX;
+            } else {
+                list->buffer_allocated *= 2;
+            }
+        } while (new_used > list->buffer_allocated);
+        if (!(buffer = realloc(list->buffer, list->buffer_allocated))) 
+        {
+            println_error_with_errno(
+                "Failed to allocate memory for bind buffer");
+            return -1;
+        }
+        list->buffer = buffer;
+    }
+    if ((new_count = list->offsets_count + 1) > list->offsets_count) {
+        do {
+            if (list->offsets_allocated == SIZE_MAX) {
+                println_error("Impossible to allocate memory for more offsets");
+                return -1;
+            } else if (list->offsets_allocated >= SIZE_MAX / 2) {
+                list->offsets_allocated = SIZE_MAX;
+            } else {
+                list->offsets_allocated *= 2;
+            }
+        } while (new_count > list->offsets_allocated);
+        if (!(buffer = realloc(list->offsets, 
+            list->offsets_allocated * sizeof *list->offsets))) 
+        {
+            println_error_with_errno(
+                "Failed to allocate memory for bind buffer");
+            return -1;
+        }
+        list->offsets = buffer;
+    }
+    list->offsets[list->offsets_count++] = list->buffer_used;
+    if (need_home) {
+        memcpy(list->buffer + list->buffer_used,
+             list->buffer, list->len_home);
+        list->buffer[list->buffer_used += list->len_home] = '/';
+        ++list->buffer_used;
+    }
+    memcpy(list->buffer + list->buffer_used, name, len_name);
+    list->buffer[offset_null] = '\0';
+    list->buffer_used = new_used;
+    return 0;
+}
+
+#define binds_list_add_no_len(list, name) \
+    binds_list_add(list, name, strnlen(name, PATH_MAX))
+
+void binds_list_print(
+    struct binds_list const *const restrict list
+) {
+    size_t i;
+
+    for (i = 0; i < list->offsets_count; ++i) {
+        println_info("Custom bind: '%s'", list->buffer + list->offsets[i]);
+    }
+}
+
+int binds_list_add_path_like(
+    struct binds_list *const restrict list,
+    char const *const restrict path_like
+) {
+    char const *start = path_like, *end;
+    int r;
+
+    while (start && *start) {
+        end = strchr(start, ':');
+        if (end) {
+            r = binds_list_add(list, start, end - start);
+            start = end + 1;
+        } else {
+            r = binds_list_add_no_len(list, start);
+            start = NULL;
+        }
+        if (r) {
+            println_error(
+                "Failed to add PATH-like string to binds list: '%s'", 
+                path_like);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+void binds_list_free(
+    struct binds_list const *const restrict list
+) {
+    free(list->buffer);
+    free(list->offsets);
+}
+
+
+int binds_list_init_from_env(
+    struct binds_list *const restrict list
+) {
+    char *env;
+
+    if (binds_list_init(list)) {
+        println_error("Failed to init binds list");
+        return -1;
+    }
+    if ((env = getenv(ENV_BINDS)) && 
+        binds_list_add_path_like(list, env)) 
+    {
+        println_error("Failed to populate binds list from env "ENV_BINDS);
+        binds_list_free(list);
+        return -1;
+    }
+    return 0;
+}
+
+void ime_update_value(
+    enum ime *const restrict ime,
+    char const *const restrict value
+) {
+    switch (strnlen(value, 6)) {
+    case 4:
+        if (!memcmp(value, "none", 4)) {
+            *ime = ImeNone;
+            return;
+        }
+        if (!memcmp(value, "auto", 4)) {
+            *ime = ImeAuto;
+            return;
+        }
+        if (!memcmp(value, "ibus", 4)) {
+            *ime = ImeIbus;
+            return;
+        }
+        break;
+    case 5:
+        if (!memcmp(value, "fcitx", 5)) {
+            *ime = ImeFcitx;
+            return;
+        }
+        break;
+    default:
+        break;
+    }
+    println_warn("Unknown IME workaround value: '%s'", value);
+}
+
+
+int cli_start(
+    int argc, 
+    char *argv[]
+) {
+    int c, option_index = 0, r = -1;
+    struct binds_list list;
+    char data[PATH_MAX], *env;
+    enum ime ime = ImeAuto;
+    struct option const long_options[] = {
+        {"data",            required_argument,  NULL,   'd'},
+        {"bind",            required_argument,  NULL,   'b'},
+        {"binds-config",    required_argument,  NULL,   'B'},
+        {"ime",             required_argument,  NULL,   'i'},
+        {"help",            no_argument,        NULL,   'h'},
+        {NULL,              no_argument,        NULL,     0},
+    };
+
+    data[0] = '\0';
+    data[PATH_MAX - 1] = '\0';
+    if ((env = getenv(ENV_DATA))) {
+        strncpy(data, env, PATH_MAX - 1);
+    }
+    if ((env = getenv(ENV_IME))) {
+        ime_update_value(&ime, env);
+    }
+    if (binds_list_init_from_env(&list)) {
+        println_error("Failed to init binds list and populate from env");
+        return -1;
+    }
+    while ((c = getopt_long(argc, argv, "d:b:B:i:h", 
+        long_options, &option_index)) != -1) 
+    {
+        switch (c) {
+        case 'd': // --data
+            strncpy(data, optarg, PATH_MAX - 1);
+            break;
+        case 'b': // --bind
+            if (binds_list_add_no_len(&list, optarg)) {
+                println_error("Failed to add bind '%s'", optarg);
+                goto free_binds_list;
+            }
+            break;
+        case 'B': // --binds-config
+            break;
+        case 'i': // --ime
+            ime_update_value(&ime, optarg);
+        case 'h':
+            break;
+        default:
+            println_error("Unknown option '%s'", argv[optind - 1]);
+            return -1;
+        }
+    }
+    
+    binds_list_print(&list);
+    // if (binds_list_init())
+    // struct binds_list;
+    // // unsigned short binds_count = 0, binds_alloc;
+    // char (*binds)[PATH_MAX], *env, *start, *end;
+    // // char *env, *sep;
+    
+
+    // binds = malloc((binds_alloc = 16) * sizeof *binds);
+    // if (!binds) {
+    //     println_error_with_errno("Failed to allocate memory for binds");
+    //     return -1;
+    // }
+    // env = getenv(ENV_BINDS);
+    // if (env) {
+    //     start = env;
+    //     end = strchr(start, ':');
+
+        
+
+
+    // }
+
+    // // getenv()
+
+
+
+    r = 0;
+free_binds_list:
+    binds_list_free(&list);
+    return r;
+}
 
 int try_move_foreground() {
     sd_bus *bus;
@@ -467,10 +739,8 @@ int applet_start(
             return 0;
         }
     }
-    if (!try_move_foreground()) return 0;
-
-    return 0;
-    // return cli_start(argc, argv);
+    // if (!try_move_foreground()) return 0;
+    return cli_start(argc, argv);
 }
 
 enum applet applet_from_arg0(
