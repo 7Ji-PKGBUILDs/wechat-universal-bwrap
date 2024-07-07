@@ -185,6 +185,7 @@ try_start() {
 
         # /tmp
         --tmpfs /tmp
+        --ro-bind /tmp{,}
 
         # /opt
         --ro-bind /opt/wechat-universal{,}
@@ -209,7 +210,7 @@ try_start() {
         --dev-bind /run/dbus{,}
         --ro-bind /run/systemd/userdb{,}
         --ro-bind-try "${XAUTHORITY}"{,}
-        --ro-bind "${XDG_RUNTIME_DIR}/bus"{,}
+        --ro-bind-try "${XDG_RUNTIME_DIR}/bus"{,}
         --ro-bind "${XDG_RUNTIME_DIR}/pulse"{,}
     )
 
