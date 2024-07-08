@@ -140,6 +140,13 @@ try_start() {
     done
     cd - > /dev/null
 
+    # In case 
+    if [[ "${DBUS_SESSION_BUS_ADDRESS}" ]]; then
+        DBUS_SESSION_BUS_PATH="${DBUS_SESSION_BUS_ADDRESS#unix:path=}"
+    else
+        DBUS_SESSION_BUS_PATH="${XDG_RUNTIME_DIR}/bus"
+    fi
+
     mkdir -p "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}"
     ln -snf "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}/xwechat_files"
 
@@ -209,7 +216,7 @@ try_start() {
         --dev-bind /run/dbus{,}
         --ro-bind /run/systemd/userdb{,}
         --ro-bind-try "${XAUTHORITY}"{,}
-        --ro-bind "${XDG_RUNTIME_DIR}/bus"{,}
+        --ro-bind "${DBUS_SESSION_BUS_PATH}"{,}
         --ro-bind "${XDG_RUNTIME_DIR}/pulse"{,}
     )
 
