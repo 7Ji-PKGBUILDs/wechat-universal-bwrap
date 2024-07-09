@@ -140,11 +140,13 @@ try_start() {
     done
     cd - > /dev/null
 
-    # In case 
+    DBUS_SESSION_BUS_PATH=''
     if [[ "${DBUS_SESSION_BUS_ADDRESS}" ]]; then
-        DBUS_SESSION_BUS_PATH="${DBUS_SESSION_BUS_ADDRESS#unix:path=}"
-    else
+        DBUS_SESSION_BUS_PATH=$(echo "${DBUS_SESSION_BUS_ADDRESS}" | sed 's/^unix:\(.\+=.\+\)\?path=\(.\+\)\(,.\+=.\+\|$\)/\2/')
+    fi
+    if [[ -z "${DBUS_SESSION_BUS_PATH}" ]]; then
         DBUS_SESSION_BUS_PATH="${XDG_RUNTIME_DIR}/bus"
+        echo "Failed to extract \$DBUS_SESSION_BUS_ADDRESS from \$DBUS_SESSION_BUS_ADDRESS (${DBUS_SESSION_BUS_ADDRESS}), using fallback ${DBUS_SESSION_BUS_PATH}"
     fi
 
     mkdir -p "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}"
