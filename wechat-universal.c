@@ -44,10 +44,12 @@
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <locale.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <sys/stat.h>
 #include <linux/limits.h>
 #include <systemd/sd-bus-protocol.h>
 #include <systemd/sd-bus.h>
@@ -84,6 +86,8 @@
 #define ENV_BINDS   "CUSTOM_BINDS"
 #define ENV_BINDS_CONFIG "CUSTOM_BINDS_CONFIG"
 #define ENV_IME     "IME_WORKAROUND"
+
+#define DEFAULT_BINDS_CONFIG "~/.config/wechat-universal/binds.list"
 
 #define println(format, arg...) printf(format"\n", ##arg)
 #define println_with_prefix(prefix, format, arg...) \
@@ -124,6 +128,13 @@ enum ime {
     ImeAuto,
     ImeFcitx,
     ImeIbus
+};
+
+char *ime_names[] = {
+    "None",
+    "Auto",
+    "Fcitx (5)",
+    "IBus"
 };
 
 struct binds_list {
@@ -451,6 +462,19 @@ int binds_list_init(
     return 0;
 }
 
+static inline
+int path_expand(
+    char *const restrict expaneded, // Length = PATH_MAX
+    char const *const restrict original,
+    char const *const restrict home,
+    bool const tilde
+) {
+    
+
+
+}
+
+
 int binds_list_add(
     struct binds_list *const restrict list,
     char const *const restrict name,
@@ -459,6 +483,8 @@ int binds_list_add(
     size_t offset_null, new_used, new_count;
     void *buffer;
     bool need_home;
+
+    if (!len_name) return 0;
 
     offset_null = list->buffer_used + len_name;
     if ((need_home = name[0] != '\0')) {
@@ -529,15 +555,16 @@ void binds_list_print(
     }
 }
 
-int binds_list_add_path_like(
+int binds_list_add_multi_with_seperator(
     struct binds_list *const restrict list,
-    char const *const restrict path_like
+    char const *const restrict raw,
+    char const seperator
 ) {
-    char const *start = path_like, *end;
+    char const *start = raw, *end;
     int r;
 
     while (start && *start) {
-        end = strchr(start, ':');
+        end = strchr(start, seperator);
         if (end) {
             r = binds_list_add(list, start, end - start);
             start = end + 1;
@@ -546,13 +573,73 @@ int binds_list_add_path_like(
             start = NULL;
         }
         if (r) {
-            println_error(
-                "Failed to add PATH-like string to binds list: '%s'", 
-                path_like);
+            println_error("Failed to add a single string to binds list from raw"
+                " content seperated by '%c' (0x%hhx): '%s'", 
+                seperator, seperator, raw);
             return -1;
         }
     }
     return 0;
+}
+
+#define binds_list_add_path_like(list, path_like) \
+    binds_list_add_multi_with_seperator(list, path_like, ':')
+#define binds_list_add_from_lines(list, path_like) \
+    binds_list_add_multi_with_seperator(list, path_like, '\n')
+
+int binds_list_add_from_config(
+    struct binds_list *const restrict list,
+    char const *const restrict path
+) {
+    int fd, r = -1;
+    struct stat stat;
+    char *config;
+    ssize_t size;
+
+    if ((fd = open(path, O_RDONLY)) < 0) {
+        println_error_with_errno("Failed to open binds config file '%s'", path);
+        return -1;
+    }
+    if (fstat(fd, &stat)) {
+        println_error_with_errno("Failed to stat binds config file '%s'", path);
+        goto close_fd;
+    }
+    if (stat.st_size < 0) {
+        println_error("Binds config file '%s' size is negative (%ld)", 
+            path, stat.st_size);
+        goto close_fd;
+    } else if (stat.st_size == 0) {
+        println_warn("Skipped empty binds config file '%s'",path);
+        r = 0;
+        goto close_fd;
+    }
+    if (!(config = malloc(stat.st_size))) {
+        println_error_with_errno(
+            "Failed to allocate memory for binds config file '%s'", path);
+        goto close_fd;
+    }
+    size = read(fd, config, stat.st_size);
+    if (size < 0) {
+        println_error_with_errno("Failed to read binds config file '%s'", path);
+        goto free_config;
+    } else if (size != stat.st_size) {
+        println_error("Read binds config file '%s' size mismatch, expected %ld,"
+            " actual %ld", path, stat.st_size, size);
+        goto free_config;
+    }
+    if (binds_list_add_from_lines(list, config)) {
+        println_error("Failed to add bind config from binds config file '%s'", 
+            path);
+        goto free_config;
+    }
+
+    r = 0;
+free_config:
+    free(config);
+close_fd:
+    close(fd);
+
+    return r;
 }
 
 void binds_list_free(
@@ -561,7 +648,6 @@ void binds_list_free(
     free(list->buffer);
     free(list->offsets);
 }
-
 
 int binds_list_init_from_env(
     struct binds_list *const restrict list
@@ -622,6 +708,7 @@ int cli_start(
     struct binds_list list;
     char data[PATH_MAX], *env;
     enum ime ime = ImeAuto;
+    bool has_binds_config = false;
     struct option const long_options[] = {
         {"data",            required_argument,  NULL,   'd'},
         {"bind",            required_argument,  NULL,   'b'},
@@ -651,24 +738,44 @@ int cli_start(
             strncpy(data, optarg, PATH_MAX - 1);
             break;
         case 'b': // --bind
-            if (binds_list_add_no_len(&list, optarg)) {
+            if (*optarg &&
+                binds_list_add_no_len(&list, optarg)) 
+            {
                 println_error("Failed to add bind '%s'", optarg);
                 goto free_binds_list;
             }
             break;
         case 'B': // --binds-config
+            has_binds_config = true;
+            if (*optarg &&
+                binds_list_add_from_config(&list, optarg)) 
+            {
+                println_error("Failed to add binds from '%s'", optarg);
+                goto free_binds_list;
+            }
             break;
         case 'i': // --ime
             ime_update_value(&ime, optarg);
-        case 'h':
             break;
+        case 'h':
+            // We shouldn't be here
+            println_error("Re-encontered option '%s', this should not happen", 
+                argv[optind - 1]);
+            goto free_binds_list;
         default:
             println_error("Unknown option '%s'", argv[optind - 1]);
-            return -1;
+            goto free_binds_list;
         }
+    }
+    if (!has_binds_config &&
+        binds_list_add_from_config(&list, 
+            DEFAULT_BINDS_CONFIG))
+    {
+        println_warn("Failed to add binds from '"DEFAULT_BINDS_CONFIG"'");
     }
     
     binds_list_print(&list);
+    println_info("IME workaround: %s", ime_names[ime]);
     // if (binds_list_init())
     // struct binds_list;
     // // unsigned short binds_count = 0, binds_alloc;
@@ -734,7 +841,7 @@ int applet_start(
 
     // Early quit for --help
     for (i = 0; i < argc; ++i) {
-        if (!strncmp(argv[i], "--help", 7)) {
+        if (!strncmp(argv[i], "-h", 3) || !strncmp(argv[i], "--help", 7)) {
             help_start(argv[0]);
             return 0;
         }
