@@ -140,6 +140,15 @@ try_start() {
     done
     cd - > /dev/null
 
+    DBUS_SESSION_BUS_PATH=''
+    if [[ "${DBUS_SESSION_BUS_ADDRESS}" ]]; then
+        DBUS_SESSION_BUS_PATH=$(echo "${DBUS_SESSION_BUS_ADDRESS}" | sed 's/^unix:\(.\+=.\+\)\?path=\(.\+\)\(,.\+=.\+\|$\)/\2/')
+    fi
+    if [[ -z "${DBUS_SESSION_BUS_PATH}" ]]; then
+        DBUS_SESSION_BUS_PATH="${XDG_RUNTIME_DIR}/bus"
+        echo "Failed to extract \$DBUS_SESSION_BUS_ADDRESS from \$DBUS_SESSION_BUS_ADDRESS (${DBUS_SESSION_BUS_ADDRESS}), using fallback ${DBUS_SESSION_BUS_PATH}"
+    fi
+
     mkdir -p "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}"
     ln -snf "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}/xwechat_files"
 
@@ -209,7 +218,7 @@ try_start() {
         --dev-bind /run/dbus{,}
         --ro-bind /run/systemd/userdb{,}
         --ro-bind-try "${XAUTHORITY}"{,}
-        --ro-bind "${XDG_RUNTIME_DIR}/bus"{,}
+        --ro-bind "${DBUS_SESSION_BUS_PATH}"{,}
         --ro-bind "${XDG_RUNTIME_DIR}/pulse"{,}
     )
 
