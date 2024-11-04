@@ -4,12 +4,13 @@
 
 _pkgname=wechat-universal
 pkgname=${_pkgname}-bwrap
-pkgver=1.0.0.242
-pkgrel=5
+pkgver=4.0.0.21
+pkgrel=1
 pkgdesc="WeChat (Universal) with bwrap sandbox"
 arch=('x86_64' 'aarch64' 'loong64')
 url="https://weixin.qq.com"
 license=('proprietary' 'GPLv3') # GPLv3 as desktop-app was statically linked-in, refer: https://aur.archlinux.org/packages/wechat-universal-bwrap#comment-964013
+install="${_pkgname}".install
 provides=("${_pkgname}")
 conflicts=("${_pkgname}")
 replaces=('wechat-beta'{,-bwrap})
@@ -39,55 +40,60 @@ options=(!strip !debug emptydirs) # emptydirs for /usr/lib/license (see below)
 _lib_uos='libuosdevicea'
 
 source=(
-    "fake_dde-file-manager"
+    'fake_dde-file-manager'
     "${_pkgname}.sh"
     "${_pkgname}.desktop"
     "${_lib_uos}".{c,Makefile}
 )
 
-_rpm_stem="wechat-beta_${pkgver}"
-_rpm_url_common_1="https://mirrors.opencloudos.tech/opencloudos/9.2/extras/"
-_rpm_url_common_2="/os/Packages/${_rpm_stem}"
-_deb_stem="com.tencent.wechat_1.0.0.241"
+_deb_stem="com.tencent.wechat_${pkgver}"
 _deb_url_common="https://home-store-packages.uniontech.com/appstore/pool/appstore/c/com.tencent.wechat/${_deb_stem}"
 
-source_x86_64=("${_rpm_url_common_1}x86_64${_rpm_url_common_2}_amd64.rpm")
-source_aarch64=("${_rpm_url_common_1}aarch64${_rpm_url_common_2}_arm64.rpm")
+source_x86_64=("${_deb_url_common}_amd64.deb")
+source_aarch64=("${_deb_url_common}_arm64.deb")
 source_loong64=("${_deb_url_common}_loongarch64.deb")
 
-noextract=("${_rpm_stem}"_{amd,arm}64.rpm "${_deb_stem}"_loongarch64.deb )
+noextract=("${_deb_stem}"_{amd,arm,loongarch}64.deb )
 
 sha256sums=(
     'b25598b64964e4a38f8027b9e8b9a412c6c8d438a64f862d1b72550ac8c75164'
-    '9cf9665bb3e9c0e5ad51ed771d1efb8d534797e622012957b50adbc491175bf7'
+    'd5ab68ccc7e86fb24452a96c5e5e98c3bea28edb3a1e5f3d495b2660ac2dba89'
     '0563472cf2c74710d1fe999d397155f560d3ed817e04fd9c35077ccb648e1880'
     'fc3ce9eb8dee3ee149233ebdb844d3733b2b2a8664422d068cf39b7fb08138f8'
     'f05f6f907898740dab9833c1762e56dbc521db3c612dd86d2e2cd4b81eb257bf'
 )
 
 sha256sums_x86_64=(
-    'ff97d711f3c71cbe86ef93e1d04a681af5c3e95e0188f4b411064ced2819d719'
+    'd6d3bc011b762ee0b03f3eeb3b6e7ff5d4ce21ff51c2a73d4ddaa26534e88d19'
 )
 sha256sums_aarch64=(
-    '8961d5a61e3006438d140accd88a04f72796cc1c147e048b1751e03e5ce4f4ed'
+    '5e5f9b4ff597679f2b721bd404031f71da8cc4e211c69e6ac8c444fc5bc40bd2'
 )
 sha256sums_loong64=(
-    '90c3276fd8e338eb50162bcb0eef9a41cb553187851d0d5f360e3d010138c8b9'
+    '6fa8f7cb5d0739d46f2a84d363d8f68c6a0cfd6f57023748ad035903d75d994c'
 )
 
-prepare() {
-    local _arch=
+_debian_arch_from_carch() {
     case "${CARCH}" in
-        loong64)
-            _arch=loongarch64
-            ;;
-        *)
+    'x86_64')
+        echo 'amd64'
+        ;;
+    'aarch64')
+        echo 'arm64'
+        ;;
+    'loong64')
+        echo 'loongarch64'
+        ;;
+    *)
+        echo 'unknown'
+        ;;
     esac
-    if [[ "${_arch}" ]]; then
-        echo 'Extracting data.tar from deb...'
-        bsdtar -xOf "${_deb_stem}_${_arch}.deb" ./data.tar.xz |
-            xz -cd > data.tar
-    fi
+}
+
+prepare() {
+    echo 'Extracting data.tar from deb...'
+    bsdtar -xOf "${_deb_stem}_$(_debian_arch_from_carch).deb" ./data.tar.xz |
+        xz -cd > data.tar
     echo 'Preparing to compile libuosdevica.so...'
     mkdir -p "${_lib_uos}"
     mv "${_lib_uos}"{.c,/}
@@ -101,35 +107,18 @@ build() {
 }
 
 package() {
-    local _arch=
-    case "${CARCH}" in
-        x86_64)
-            _arch=amd64
-            ;;
-        aarch64)
-            _arch=arm64
-            ;;
-    esac
-    if [[ "${_arch}" ]]; then
-        echo 'Popupating pkgdir with data from wechat-universal rpm file...'
-        bsdtar -C "${pkgdir}" --no-same-owner -xf "${_rpm_stem}_${_arch}.rpm" ./opt/wechat-beta
-        install -DTm644 "${pkgdir}"/opt/wechat-beta/icons/wechat.png "${pkgdir}/usr/share/icons/hicolor/256x256/apps/${_pkgname}.png"
-        rm -rf "${pkgdir}/opt/wechat-beta/icons"
-        mv "${pkgdir}"/opt/{wechat-beta,"${_pkgname}"}
-    else
-        echo 'Popupating pkgdir with data from wechat-universal deb file...'
-        tar -C "${pkgdir}" --no-same-owner -xf data.tar ./opt/apps/com.tencent.wechat
-        mv "${pkgdir}"/opt/{apps/com.tencent.wechat/files,"${_pkgname}"}
-        rm "${pkgdir}/opt/${_pkgname}/${_lib_uos}.so"
+    echo 'Popupating pkgdir with data from wechat-universal deb file...'
+    tar -C "${pkgdir}" --no-same-owner -xf data.tar ./opt/apps/com.tencent.wechat
+    mv "${pkgdir}"/opt/{apps/com.tencent.wechat/files,"${_pkgname}"}
+    rm "${pkgdir}/opt/${_pkgname}/${_lib_uos}.so"
 
-        echo 'Installing icons...'
-        for res in 16 32 48 64 128 256; do
-            install -Dm644 \
-                "${pkgdir}/opt/apps/com.tencent.wechat/entries/icons/hicolor/${res}x${res}/apps/com.tencent.wechat.png" \
-                "${pkgdir}/usr/share/icons/hicolor/${res}x${res}/apps/${_pkgname}.png"
-        done
-        rm -rf "${pkgdir}"/opt/apps
-    fi
+    echo 'Installing icons...'
+    for res in 16 32 48 64 128 256; do
+        install -Dm644 \
+            "${pkgdir}/opt/apps/com.tencent.wechat/entries/icons/hicolor/${res}x${res}/apps/com.tencent.wechat.png" \
+            "${pkgdir}/usr/share/icons/hicolor/${res}x${res}/apps/${_pkgname}.png"
+    done
+    rm -rf "${pkgdir}"/opt/apps
 
     echo 'Fixing licenses...'
     local _wechat_root="${pkgdir}/usr/lib/${_pkgname}"
@@ -142,6 +131,8 @@ package() {
     install -Dm755 wechat-universal.sh "${_wechat_root}"/common.sh
     ln -s common.sh "${_wechat_root}"/start.sh
     ln -s common.sh "${_wechat_root}"/stop.sh
+    mkdir -p "${pkgdir}"/usr/bin
+    ln -s ../lib/"${_pkgname}"/common.sh "${pkgdir}"/usr/bin/"${_pkgname}"
 
     echo 'Installing fake deepin file manager...'
     install -Dm755 {fake_,"${_wechat_root}"/usr/bin/}dde-file-manager

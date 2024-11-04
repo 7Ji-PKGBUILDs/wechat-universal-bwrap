@@ -1,0 +1,9 @@
+post_install() {
+    if [[ "$LANG" == "zh_CN.UTF-8" ]]; then
+        echo '>> 注意！升级至4.0版本后，环境变量已统一至WECHAT_ 前缀'
+        echo '>> 执行 `wechat-universal --help` 来查看相关帮助信息'
+    else
+        echo '>> Warning! After updating to v4.0, all environment variables are unified to be prefixed with WECHAT_'
+        echo '>> Run `wechat-universal --help` to check for the help message'
+    fi
+}

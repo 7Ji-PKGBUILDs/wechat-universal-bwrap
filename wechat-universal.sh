@@ -96,18 +96,18 @@ try_start() {
         QT_AUTO_SCREEN_SCALE_FACTOR=1 \
         PATH="/sandbox:${PATH}"
 
-    if [[ -z "${IME_WORKAROUND}" || "${IME_WORKAROUND}" == 'auto' ]]; then
+    if [[ -z "${WECHAT_IME_WORKAROUND}" || "${WECHAT_IME_WORKAROUND}" == 'auto' ]]; then
         case "${XMODIFIERS}" in 
             *@im=fcitx*)
-                IME_WORKAROUND='fcitx'
+                WECHAT_IME_WORKAROUND='fcitx'
                 ;;
             *@im=ibus*)
-                IME_WORKAROUND='ibus'
+                WECHAT_IME_WORKAROUND='ibus'
                 ;;
         esac
     fi
 
-    case "${IME_WORKAROUND}" in
+    case "${WECHAT_IME_WORKAROUND}" in
         fcitx)
             echo "IME workaround for fcitx applied"
             export QT_IM_MODULE=fcitx \
@@ -129,14 +129,14 @@ try_start() {
     # Custom exposed folders
     # echo "Hint: Custom binds could either be declared in '~/.config/wechat-universal/binds.list', each line a path, absolute or relative to your HOME; or as argument \`--bind [custom bind]\`"
     BWRAP_CUSTOM_BINDS=()
-    if [[ -f "${CUSTOM_BINDS_CONFIG}" ]]; then
-        mapfile -t CUSTOM_BINDS_PRESISTENT < "${CUSTOM_BINDS_CONFIG}"
+    if [[ -f "${WECHAT_CUSTOM_BINDS_CONFIG}" ]]; then
+        mapfile -t WECHAT_CUSTOM_BINDS_PRESISTENT < "${WECHAT_CUSTOM_BINDS_CONFIG}"
     fi
     cd ~ # 7Ji: two chdir.3 should be cheaper than a lot of per-dir calculation
-    for CUSTOM_BIND in  "${CUSTOM_BINDS_RUNTIME[@]}" "${CUSTOM_BINDS_PRESISTENT[@]}"; do
-        CUSTOM_BIND=$(readlink -f -- "${CUSTOM_BIND}")
-        echo "Custom bind: '${CUSTOM_BIND}'"
-        BWRAP_CUSTOM_BINDS+=(--bind "${CUSTOM_BIND}"{,})
+    for WECHAT_CUSTOM_BIND in  "${WECHAT_CUSTOM_BINDS_RUNTIME[@]}" "${WECHAT_CUSTOM_BINDS_PRESISTENT[@]}"; do
+        WECHAT_CUSTOM_BIND=$(readlink -f -- "${WECHAT_CUSTOM_BIND}")
+        echo "Custom bind: '${WECHAT_CUSTOM_BIND}'"
+        BWRAP_CUSTOM_BINDS+=(--bind "${WECHAT_CUSTOM_BIND}"{,})
     done
     cd - > /dev/null
 
@@ -228,9 +228,9 @@ try_start() {
 }
 
 applet_start() {
-    IFS=':' read -r -a CUSTOM_BINDS_RUNTIME <<< "${CUSTOM_BINDS}"
-    if [[ -z "${CUSTOM_BINDS_CONFIG}" && ! -v CUSTOM_BINDS_CONFIG ]]; then
-        CUSTOM_BINDS_CONFIG=~/.config/wechat-universal/binds.list
+    IFS=':' read -r -a WECHAT_CUSTOM_BINDS_RUNTIME <<< "${WECHAT_CUSTOM_BINDS}"
+    if [[ -z "${WECHAT_CUSTOM_BINDS_CONFIG}" && ! -v WECHAT_CUSTOM_BINDS_CONFIG ]]; then
+        WECHAT_CUSTOM_BINDS_CONFIG=~/.config/wechat-universal/binds.list
     fi
     # Parsing arguments, for any option, argument > environment
     while [[ $# -gt 0 ]]; do
@@ -240,15 +240,15 @@ applet_start() {
                 shift
                 ;;
             '--bind')
-                CUSTOM_BINDS_RUNTIME+=("$2")
+                WECHAT_CUSTOM_BINDS_RUNTIME+=("$2")
                 shift
                 ;;
             '--binds-config')
-                CUSTOM_BINDS_CONFIG="$2"
+                WECHAT_CUSTOM_BINDS_CONFIG="$2"
                 shift
                 ;;
             '--ime')
-                IME_WORKAROUND="$2"
+                WECHAT_IME_WORKAROUND="$2"
                 shift
                 ;;
             '--help')
@@ -257,9 +257,9 @@ applet_start() {
                     echo 
                     printf '    --%s\t%s\n' \
                         'data [微信数据文件夹]' '微信数据文件夹的路径，绝对路径，或相对于用户HOME的相对路径。 默认：~/文档/Wechat_Data；环境变量: WECHAT_DATA_DIR' \
-                        'bind [自定义绑定挂载]' '自定义的绑定挂载，可被声明多次，绝对路径，或相对于用户HOME的相对路径。环境变量: CUSTOM_BINDS （用冒号:分隔，与PATH相似）' \
-                        'binds-config [文件]' '以每行一个的方式列明应被绑定挂载的路径的纯文本配置文件，每行定义与--bind一致。默认：~/.config/wechat-universal/binds.list；环境变量：CUSTOM_BINDS_CONFIG' \
-                        'ime [输入法名称或特殊值]' '应用输入法对应环境变量修改，可支持：fcitx (不论是否为5), ibus，特殊值：none不应用，auto自动判断。默认: auto；环境变量: IME_WORKAROUND'\
+                        'bind [自定义绑定挂载]' '自定义的绑定挂载，可被声明多次，绝对路径，或相对于用户HOME的相对路径。环境变量: WECHAT_CUSTOM_BINDS, （用冒号:分隔，与PATH相似）' \
+                        'binds-config [文件]' '以每行一个的方式列明应被绑定挂载的路径的纯文本配置文件，每行定义与--bind一致。默认：~/.config/wechat-universal/binds.list；环境变量：WECHAT_CUSTOM_BINDS_CONFIG' \
+                        'ime [输入法名称或特殊值]' '应用输入法对应环境变量修改，可支持：fcitx (不论是否为5), ibus，特殊值：none不应用，auto自动判断。默认: auto；环境变量: WECHAT_IME_WORKAROUND'\
                         'help' ''
                     echo
                     echo "命令行参数比环境变量优先级更高，如果命令行参数与环境变量皆为空，则使用默认值"
@@ -268,9 +268,9 @@ applet_start() {
                     echo 
                     printf '    --%s\t%s\n' \
                         'data [wechat data]' 'Path to Wechat_Data folder, absolute or relative to user home, default: ~/Documents/Wechat_Data, as environment: WECHAT_DATA_DIR' \
-                        'bind [custom bind]' 'Custom bindings, could be specified multiple times, absolute or relative to user home, as environment: CUSTOM_BINDS (colon ":" seperated like PATH)' \
-                        'binds-config [file]' 'Path to text file that contains one --bind value per line, default: ~/.config/wechat-universal/binds.list, as environment: CUSTOM_BINDS_CONFIG'\
-                        'ime [input method]' 'Apply IME-specific workaround, support: fcitx (also for 5), ibus, default: auto, as environment: IME_WORKAROUND'\
+                        'bind [custom bind]' 'Custom bindings, could be specified multiple times, absolute or relative to user home, as environment: WECHAT_CUSTOM_BINDS (colon ":" seperated like PATH)' \
+                        'binds-config [file]' 'Path to text file that contains one --bind value per line, default: ~/.config/wechat-universal/binds.list, as environment: WECHAT_CUSTOM_BINDS_CONFIG'\
+                        'ime [input method]' 'Apply IME-specific workaround, support: fcitx (also for 5), ibus, default: auto, as environment: WECHAT_IME_WORKAROUND'\
                         'help' ''
                     echo
                     echo "Arguments take priority over environment, if both argument and environment are empty, the default value would be used"
@@ -305,14 +305,14 @@ applet_stop() {
 
 applet="${0##*/}"
 case "${applet}" in
-    'stop.sh')
+    'stop.sh'|'stop')
         applet_stop "$@"
         ;;
-    'start.sh')
+    'start.sh'|'start'|'wechat-universal.sh'|'wechat-universal')
         applet_start "$@"
         ;;
     *)
-        echo "Unknown applet '${APPLET}', allowed: start.sh, stop.sh"
+        echo "Unknown applet '${APPLET}', allowed: start.sh (alias start, wechat-universal, wechat-universal.sh), stop.sh (alias stop)"
         exit 1
         ;;
 esac
