@@ -22,7 +22,6 @@ depends=(
     'libxcomposite'
     'libxkbcommon-x11'
     'libxrandr'
-    'mesa'
     'nss'
     'pango'
     'xcb-util-image'
