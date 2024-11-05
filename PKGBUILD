@@ -5,7 +5,7 @@
 _pkgname=wechat-universal
 pkgname=${_pkgname}-bwrap
 pkgver=4.0.0.23
-pkgrel=1
+pkgrel=2
 pkgdesc="WeChat (Universal) with bwrap sandbox"
 arch=('x86_64' 'aarch64' 'loong64')
 url="https://weixin.qq.com"
@@ -15,11 +15,13 @@ provides=("${_pkgname}")
 conflicts=("${_pkgname}")
 replaces=('wechat-beta'{,-bwrap})
 depends=(
-    'alsa-lib'
     'at-spi2-core'
     'bubblewrap'
     'flatpak-xdg-utils'
+    'jack'
+    'libpulse'
     'libxcomposite'
+    'libxdamage'
     'libxkbcommon-x11'
     'libxrandr'
     'mesa'
@@ -41,23 +43,22 @@ fi
 options=(!strip !debug)
 
 source=(
-    'fake_dde-file-manager'
     "${_pkgname}.sh"
     "${_pkgname}.desktop"
 )
 
-_deb_stem="com.tencent.wechat_${pkgver}"
-_deb_url_common="https://home-store-packages.uniontech.com/appstore/pool/appstore/c/com.tencent.wechat/${_deb_stem}"
+_deb_name='com.tencent.wechat'
+_deb_url_common="https://home-store-packages.uniontech.com/appstore/pool/appstore/${_deb_name::1}/${_deb_name}/${_deb_name}_${pkgver}"
+_deb_prefix="${_pkgname}-${pkgver}"
 
-source_x86_64=("${_deb_url_common}_amd64.deb")
-source_aarch64=("${_deb_url_common}_arm64.deb")
-source_loong64=("${_deb_url_common}_loongarch64.deb")
+source_x86_64=("${_deb_prefix}-x86_64.deb::${_deb_url_common}_amd64.deb")
+source_aarch64=("${_deb_prefix}-aarch64.deb::${_deb_url_common}_arm64.deb")
+source_loong64=("${_deb_prefix}-loong64.deb::${_deb_url_common}_loongarch64.deb")
 
-noextract=("${_deb_stem}"_{amd,arm,loongarch}64.deb )
+noextract=("${_deb_prefix}"_{x86,aarch,loong}64.deb )
 
 sha256sums=(
-    'b25598b64964e4a38f8027b9e8b9a412c6c8d438a64f862d1b72550ac8c75164'
-    'e3beb121edcb1e6f065226aec9137a7e38fd73af4030ee0e179427162a230fdc'
+    'cbaf57f763c12a05aa42093d8bdb5931a70972c3b252759ad9091e0d3350ebd1'
     '0563472cf2c74710d1fe999d397155f560d3ed817e04fd9c35077ccb648e1880'
 )
 
@@ -72,34 +73,33 @@ sha256sums_loong64=(
 )
 
 prepare() {
-    declare -A _debian_arch=(
-        ['x86_64']='amd64'
-        ['aarch64']='arm64'
-        ['loong64']='loongarch64'
-    )
     echo 'Extracting data from deb...'
-    bsdtar -xOf "${_deb_stem}_${_debian_arch[$CARCH]}.deb" ./data.tar.xz |
-        xz -cdT0 |
-        tar -x ./opt/apps/com.tencent.wechat
+    bsdtar --extract --to-stdout --file "${_deb_prefix}-${CARCH}.deb" ./data.tar.xz |
+        xz --to-stdout --decompress --threads 0 |
+        tar --strip-components 4 --extract ./opt/apps/com.tencent.wechat/{entries/icons,files}
 
-    mv opt/apps/com.tencent.wechat/{files,entries/icons} .
-    rm files/libuosdevicea.so
-    rm -rf opt
-
-    local _file
-    echo 'Patching rpath...'
-    for _file in libwxtrans.so; do # add more here
-        echo "  ${_file} => \$ORIGIN"
-        patchelf --set-rpath '$ORIGIN' files/"${_file}"
-    done
+    mv entries/icons/hicolor icons
+    rm -rf entries files/libuosdevicea.so
 
     echo 'Stripping executable permission of non-ELF files...'
+    cd files
     local _file
-    for _file in $(find files -type f -perm /111); do
-        readelf -h "${_file}" &>/dev/null && continue || true
+    find . -type f -perm /111 | while read _file; do
+        if [[ $(file --brief "${_file}") == 'ELF '* ]]; then
+            continue
+        fi
         stat --printf '  %A => ' "${_file}"
         chmod u-x,g-x,o-x "${_file}"
         stat --format '%A %n' "${_file}"
+    done
+
+    echo 'Patching rpath...'
+    patchelf --set-rpath '$ORIGIN' 'libwxtrans.so'
+    echo "  '\$ORIGIN' <= libwxtrans.so"
+    cd vlc_plugins
+    find . -type f | while read _file; do
+        echo "  '\$ORIGIN:\$ORIGIN/../..' <= vlc_plugins/${_file}"
+        patchelf --set-rpath '$ORIGIN:$ORIGIN/../..' "${_file}"
     done
 }
 
@@ -111,10 +111,9 @@ package() {
     echo 'Installing icons...'
     for res in 16 32 48 64 128 256; do
         install -Dm644 \
-            "icons/hicolor/${res}x${res}/apps/com.tencent.wechat.png" \
+            "icons/${res}x${res}/apps/com.tencent.wechat.png" \
             "${pkgdir}/usr/share/icons/hicolor/${res}x${res}/apps/${_pkgname}.png"
     done
-    rm -rf "${pkgdir}"/opt/apps
 
     local _wechat_root="${pkgdir}/usr/lib/${_pkgname}"
 
@@ -124,9 +123,6 @@ package() {
     ln -s common.sh "${_wechat_root}"/stop.sh
     mkdir -p "${pkgdir}"/usr/bin
     ln -s ../lib/"${_pkgname}"/common.sh "${pkgdir}"/usr/bin/"${_pkgname}"
-
-    echo 'Installing fake deepin file manager...'
-    install -Dm755 {fake_,"${_wechat_root}"/usr/bin/}dde-file-manager
 
     echo 'Installing desktop files...'
     install -Dm644 "${_pkgname}.desktop" "${pkgdir}/usr/share/applications/${_pkgname}.desktop"
