@@ -9,6 +9,7 @@ pkgbase = wechat-universal-bwrap
 	arch = loong64
 	license = proprietary
 	license = GPLv3
+	makedepends = patchelf
 	depends = alsa-lib
 	depends = at-spi2-core
 	depends = bubblewrap

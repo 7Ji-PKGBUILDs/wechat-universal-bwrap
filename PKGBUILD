@@ -32,6 +32,9 @@ depends=(
     'xdg-desktop-portal'
     'xdg-user-dirs'
 )
+makedepends=(
+    'patchelf'
+)
 if [[ "${CARCH}" == loong64 ]]; then # This is needed instead of a plain declaration because AUR web would return all depends regardless of client's arch, AUR helpers would thus refuse to build the package on non-loong64 due to missing liblol
     depends_loong64=('liblol')
 fi
@@ -74,20 +77,41 @@ prepare() {
         ['aarch64']='arm64'
         ['loong64']='loongarch64'
     )
-    echo 'Extracting data.tar from deb...'
+    echo 'Extracting data from deb...'
     bsdtar -xOf "${_deb_stem}_${_debian_arch[$CARCH]}.deb" ./data.tar.xz |
-        xz -cd > data.tar
+        xz -cdT0 |
+        tar -x ./opt/apps/com.tencent.wechat
+
+    mv opt/apps/com.tencent.wechat/{files,entries/icons} .
+    rm files/libuosdevicea.so
+    rm -rf opt
+
+    local _file
+    echo 'Patching rpath...'
+    for _file in libwxtrans.so; do # add more here
+        echo "  ${_file} => \$ORIGIN"
+        patchelf --set-rpath '$ORIGIN' files/"${_file}"
+    done
+
+    echo 'Stripping executable permission of non-ELF files...'
+    local _file
+    for _file in $(find files -type f -perm /111); do
+        readelf -h "${_file}" &>/dev/null && continue || true
+        stat --printf '  %A => ' "${_file}"
+        chmod u-x,g-x,o-x "${_file}"
+        stat --format '%A %n' "${_file}"
+    done
 }
 
 package() {
-    echo 'Popupating pkgdir with data from wechat-universal deb file...'
-    tar -C "${pkgdir}" --no-same-owner -xf data.tar ./opt/apps/com.tencent.wechat
-    mv "${pkgdir}"/opt/{apps/com.tencent.wechat/files,"${_pkgname}"}
+    echo 'Popupating pkgdir with earlier extracted data...'
+    mkdir -p "${pkgdir}"/opt
+    cp -r --preserve=mode files "${pkgdir}/opt/${_pkgname}"
 
     echo 'Installing icons...'
     for res in 16 32 48 64 128 256; do
         install -Dm644 \
-            "${pkgdir}/opt/apps/com.tencent.wechat/entries/icons/hicolor/${res}x${res}/apps/com.tencent.wechat.png" \
+            "icons/hicolor/${res}x${res}/apps/com.tencent.wechat.png" \
             "${pkgdir}/usr/share/icons/hicolor/${res}x${res}/apps/${_pkgname}.png"
     done
     rm -rf "${pkgdir}"/opt/apps
