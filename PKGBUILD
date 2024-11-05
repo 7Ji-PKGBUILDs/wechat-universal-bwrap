@@ -55,7 +55,7 @@ source_x86_64=("${_deb_prefix}-x86_64.deb::${_deb_url_common}_amd64.deb")
 source_aarch64=("${_deb_prefix}-aarch64.deb::${_deb_url_common}_arm64.deb")
 source_loong64=("${_deb_prefix}-loong64.deb::${_deb_url_common}_loongarch64.deb")
 
-noextract=("${_deb_prefix}"_{x86,aarch,loong}64.deb )
+noextract=("${_deb_prefix}"_{x86_,aarch,loong}64.deb )
 
 sha256sums=(
     'cbaf57f763c12a05aa42093d8bdb5931a70972c3b252759ad9091e0d3350ebd1'
