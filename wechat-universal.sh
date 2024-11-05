@@ -199,10 +199,6 @@ try_start() {
         --ro-bind /opt/wechat-universal{,}
         --ro-bind-try /opt/lol{,} # Loong New World (WeChat) on Loong Old World (LoongArchLinux)
 
-        # license fixups in various places
-        --ro-bind {/usr/lib/wechat-universal,}/usr/lib/license
-        --ro-bind {/usr/lib/wechat-universal,}/etc/lsb-release
-
         # /home
         --bind "${WECHAT_HOME_DIR}" "${HOME}"
         --bind "${WECHAT_FILES_DIR}"{,}
@@ -216,7 +212,7 @@ try_start() {
 
         # /run
         --dev-bind /run/dbus{,}
-        --ro-bind /run/systemd/userdb{,}
+        --ro-bind-try /run/systemd/userdb{,}
         --ro-bind-try "${XAUTHORITY}"{,}
         --ro-bind "${DBUS_SESSION_BUS_PATH}"{,}
         --ro-bind "${XDG_RUNTIME_DIR}/pulse"{,}
