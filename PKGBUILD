@@ -4,11 +4,11 @@
 
 _pkgname=wechat-universal
 pkgname=${_pkgname}-bwrap
-pkgver=4.0.0.23
-pkgrel=2
+pkgver=4.0.0.30
+pkgrel=1
 pkgdesc="WeChat (Universal) with bwrap sandbox"
 arch=('x86_64' 'aarch64' 'loong64')
-url="https://weixin.qq.com"
+url='https://linux.weixin.qq.com/'
 license=('proprietary' 'GPLv3') # GPLv3 as desktop-app was statically linked-in, refer: https://aur.archlinux.org/packages/wechat-universal-bwrap#comment-964013
 install="${_pkgname}".install
 provides=("${_pkgname}")
@@ -47,15 +47,15 @@ source=(
     "${_pkgname}.desktop"
 )
 
-_deb_name='com.tencent.wechat'
-_deb_url_common="https://home-store-packages.uniontech.com/appstore/pool/appstore/${_deb_name::1}/${_deb_name}/${_deb_name}_${pkgver}"
-_deb_prefix="${_pkgname}-${pkgver}"
+_upstream_name='wechat'
+_deb_url_common='https://dldir1v6.qq.com/weixin/Universal/Linux/WeChatLinux_'
+_deb_prefix="${_pkgname}-${pkgver}-"
 
-source_x86_64=("${_deb_prefix}-x86_64.deb::${_deb_url_common}_amd64.deb")
-source_aarch64=("${_deb_prefix}-aarch64.deb::${_deb_url_common}_arm64.deb")
-source_loong64=("${_deb_prefix}-loong64.deb::${_deb_url_common}_loongarch64.deb")
+source_x86_64=("${_deb_prefix}x86_64.deb::${_deb_url_common}x86_64.deb")
+source_aarch64=("${_deb_prefix}aarch64.deb::${_deb_url_common}arm64.deb")
+source_loong64=("${_deb_prefix}loong64.deb::${_deb_url_common}LoongArch.deb")
 
-noextract=("${_deb_prefix}"_{x86_,aarch,loong}64.deb )
+noextract=("${_deb_prefix}"_{x86_64,aarch64,loong64}.deb )
 
 sha256sums=(
     'cbaf57f763c12a05aa42093d8bdb5931a70972c3b252759ad9091e0d3350ebd1'
@@ -63,26 +63,26 @@ sha256sums=(
 )
 
 sha256sums_x86_64=(
-    '437826a3cdef25d763f69e29ae10479b5e8b2ba080b56de5b5de63e05a8f7203'
+    '0e2834310e1d321da841a4cde9c657d9c086c5ee8c82d09e47eab53629a5038f'
 )
 sha256sums_aarch64=(
-    'a08b0f6c4930d7ecd7a73bd701511d9b29178dbe73ba51c04f09eb9e1b3190f7'
+    'dd1f5029bb20274dd7903a0c5bf7796e1392262e048ce88265530a88328d72ec'
 )
 sha256sums_loong64=(
-    '82b8fdc861d965a836d25e6cf0881c927bd4bf3d1f04791a9202ac39efab8662'
+    '5017543b0fe8ad28bf862deec92c4a7faefa7b95bba205f20107a15c6a5a2098'
 )
 
 prepare() {
     echo 'Extracting data from deb...'
-    bsdtar --extract --to-stdout --file "${_deb_prefix}-${CARCH}.deb" ./data.tar.xz |
+    bsdtar --extract --to-stdout --file "${_deb_prefix}${CARCH}.deb" ./data.tar.xz |
         xz --to-stdout --decompress --threads 0 |
-        tar --strip-components 4 --extract ./opt/apps/com.tencent.wechat/{entries/icons,files}
+        tar --strip-components 2 --extract ./opt/"${_upstream_name}" ./usr/share/icons/hicolor
 
-    mv entries/icons/hicolor icons
-    rm -rf entries files/libuosdevicea.so
+    mv share/icons/hicolor icons
+    rm -rf share "${_upstream_name}"/libuosdevicea.so
 
     echo 'Stripping executable permission of non-ELF files...'
-    cd files
+    cd "${_upstream_name}"
     local _file
     find . -type f -perm /111 | while read _file; do
         if [[ $(file --brief "${_file}") == 'ELF '* ]]; then
@@ -106,12 +106,12 @@ prepare() {
 package() {
     echo 'Popupating pkgdir with earlier extracted data...'
     mkdir -p "${pkgdir}"/opt
-    cp -r --preserve=mode files "${pkgdir}/opt/${_pkgname}"
+    cp -r --preserve=mode "${_upstream_name}" "${pkgdir}/opt/${_pkgname}"
 
     echo 'Installing icons...'
     for res in 16 32 48 64 128 256; do
         install -Dm644 \
-            "icons/${res}x${res}/apps/com.tencent.wechat.png" \
+            "icons/${res}x${res}/apps/${_upstream_name}.png" \
             "${pkgdir}/usr/share/icons/hicolor/${res}x${res}/apps/${_pkgname}.png"
     done
 
