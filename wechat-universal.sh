@@ -199,6 +199,10 @@ try_start() {
         --ro-bind /opt/wechat-universal{,}
         --ro-bind-try /opt/lol{,} # Loong New World (WeChat) on Loong Old World (LoongArchLinux)
 
+        # license fixups in various places
+        --ro-bind {/usr/lib/wechat-universal,}/usr/lib/license
+        --ro-bind {/usr/lib/wechat-universal,}/etc/lsb-release
+
         # /home
         --bind "${WECHAT_HOME_DIR}" "${HOME}"
         --bind "${WECHAT_FILES_DIR}"{,}

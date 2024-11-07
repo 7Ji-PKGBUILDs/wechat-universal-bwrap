@@ -5,7 +5,7 @@
 _pkgname=wechat-universal
 pkgname=${_pkgname}-bwrap
 pkgver=4.0.0.30
-pkgrel=1
+pkgrel=2
 pkgdesc="WeChat (Universal) with bwrap sandbox"
 arch=('x86_64' 'aarch64' 'loong64')
 url='https://linux.weixin.qq.com/'
@@ -40,11 +40,14 @@ makedepends=(
 if [[ "${CARCH}" == loong64 ]]; then # This is needed instead of a plain declaration because AUR web would return all depends regardless of client's arch, AUR helpers would thus refuse to build the package on non-loong64 due to missing liblol
     depends_loong64=('liblol')
 fi
-options=(!strip !debug)
+options=(!strip !debug emptydirs)
+
+_lib_uos='libuosdevicea'
 
 source=(
     "${_pkgname}.sh"
     "${_pkgname}.desktop"
+    "${_lib_uos}".{c,Makefile}
 )
 
 _upstream_name='wechat'
@@ -58,8 +61,10 @@ source_loong64=("${_deb_prefix}loong64.deb::${_deb_url_common}LoongArch.deb")
 noextract=("${_deb_prefix}"{x86_64,aarch64,loong64}.deb )
 
 sha256sums=(
-    'cbaf57f763c12a05aa42093d8bdb5931a70972c3b252759ad9091e0d3350ebd1'
+    'effef03854827bcd02b0476d33e62f9c7ef1f87f949e89847e1f052c6f09f841'
     '0563472cf2c74710d1fe999d397155f560d3ed817e04fd9c35077ccb648e1880'
+    'fc3ce9eb8dee3ee149233ebdb844d3733b2b2a8664422d068cf39b7fb08138f8'
+    'f05f6f907898740dab9833c1762e56dbc521db3c612dd86d2e2cd4b81eb257bf'
 )
 
 sha256sums_x86_64=(
@@ -80,6 +85,9 @@ prepare() {
 
     mv share/icons/hicolor icons
     rm -rf share "${_upstream_name}"/libuosdevicea.so
+
+    echo "Preparing to compile ${_lib_uos}.so..."
+    mv "${_lib_uos}".Makefile Makefile
 
     echo 'Stripping executable permission of non-ELF files...'
     cd "${_upstream_name}"
@@ -103,6 +111,11 @@ prepare() {
     done
 }
 
+build() {
+    echo "Building ${_lib_uos}.so stub by Zephyr Lykos..."
+    make
+}
+
 package() {
     echo 'Popupating pkgdir with earlier extracted data...'
     mkdir -p "${pkgdir}"/opt
@@ -116,6 +129,12 @@ package() {
     done
 
     local _wechat_root="${pkgdir}/usr/lib/${_pkgname}"
+
+    echo 'Fixing licenses...'
+    install -dm755 "${pkgdir}"/usr/lib/license # This is needed if /usr/lib/license/${_lib_uos}.so needs to be mounted in sandbox
+    install -Dm755 {,"${_wechat_root}"/usr/lib/license/}"${_lib_uos}.so"
+    echo 'DISTRIB_ID=uos' |
+        install -Dm755 /dev/stdin "${_wechat_root}"/etc/lsb-release
 
     echo 'Installing scripts...'
     install -Dm755 wechat-universal.sh "${_wechat_root}"/common.sh
