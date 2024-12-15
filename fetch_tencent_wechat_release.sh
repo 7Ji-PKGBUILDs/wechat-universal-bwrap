@@ -57,8 +57,11 @@ done
 
 echo "pkgver=${version_max}"
 for arch_archlinux in x86_64 aarch64 loong64; do
-    printf 'sources_%s=(\n    %s::%s\n)\nsha256sums_%s=(\n    %s\n)\n' \
+    printf "sources_%s=(\n    '%s::%s'\n)\n" \
         "${arch_archlinux}" "${names["${arch_archlinux}"]}" \
-        "${urls["${arch_archlinux}"]}" "${arch_archlinux}" \
-        "${sha256sums["${arch_archlinux}"]}"
+        "${urls["${arch_archlinux}"]}"
+done
+for arch_archlinux in x86_64 aarch64 loong64; do
+    printf "sha256sums_%s=(\n    '%s'\n)\n" \
+        "${arch_archlinux}" "${sha256sums["${arch_archlinux}"]}"
 done
