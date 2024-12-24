@@ -4,7 +4,7 @@
 
 _pkgname=wechat-universal
 pkgname=${_pkgname}-bwrap
-pkgver=4.0.1.7
+pkgver=4.0.1.11
 pkgrel=1
 pkgdesc="WeChat (Universal) with bwrap sandbox"
 arch=('x86_64' 'aarch64' 'loong64')
@@ -68,13 +68,13 @@ sha256sums=(
 )
 
 sha256sums_x86_64=(
-    '88ea106a68fac96bc17c4209f856f45fa13e105625dc49cf8644d1b2d882f7a9'
+    '16410e0ca7895e5aa375282de5e48b2d5fcb958b063de6b2dcfd02bed190cc01'
 )
 sha256sums_aarch64=(
-    '6758c8b1f9a42c2dbd5a96332139ace2cf999ec1bc00994adac880559a9f997f'
+    '59805ad7335de5ebb1fd5748d19b2f39761a085a45be30906810756d066277bc'
 )
 sha256sums_loong64=(
-    '598e89861688fe48ce6342ebc3ec9ea3c3306aad0e8ba4b3c86413931b327eba'
+    'f6df1547bf93f6f0817ae4845227cd2917fda414f3255088bb6961e064c7b112'
 )
 
 prepare() {
