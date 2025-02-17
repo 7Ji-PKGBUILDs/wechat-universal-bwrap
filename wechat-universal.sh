@@ -78,6 +78,10 @@ try_start() {
     WECHAT_FILES_DIR="${WECHAT_DATA_DIR}/xwechat_files"
     WECHAT_HOME_DIR="${WECHAT_DATA_DIR}/home"
 
+    if [[ -n "${MULTIPLE_INSTANCE}" ]];then
+        rm -f "${WECHAT_HOME_DIR}/.xwechat/lock/lock.ini"
+    fi
+
     # Runtime folder setup
     XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-$(xdg-user-dir RUNTIME)}"
     if [[ -z "${XDG_RUNTIME_DIR}" ]]; then
@@ -253,6 +257,10 @@ applet_start() {
         '--no-callout')
             WECHAT_NO_CALLOUT='yes'
             ;;
+        '--multiple')
+            WECHAT_NO_CALLOUT='yes'
+            MULTIPLE_INSTANCE='yes'
+            ;;
         '--help')
             if [[ "${LANG}" == zh_CN* ]]; then
                 echo "$0 (--data [微信数据文件夹]) (--bind [自定义绑定挂载] (--bind ...))) (--ime [输入法]) (--help)"
@@ -262,7 +270,8 @@ applet_start() {
                     'bind [自定义绑定挂载]' '自定义的绑定挂载，可被声明多次，绝对路径，或相对于用户HOME的相对路径。环境变量: WECHAT_CUSTOM_BINDS, （用冒号:分隔，与PATH相似）' \
                     'binds-config [文件]' '以每行一个的方式列明应被绑定挂载的路径的纯文本配置文件，每行定义与--bind一致。默认：~/.config/wechat-universal/binds.list；环境变量：WECHAT_CUSTOM_BINDS_CONFIG' \
                     'ime [输入法名称或特殊值]' '应用输入法对应环境变量修改，可支持：fcitx (不论是否为5), ibus，特殊值：none不应用，auto自动判断。默认: auto；环境变量: WECHAT_IME_WORKAROUND'\
-                    'no-callout        ' '不要试图呼出已经在运行的微信实例，与--data共同使用可以在微信已在运行的情况下进行多开。默认: 不设置；环境变量: WECHAT_NO_CALLOUT'\
+                    'no-callout        ' '不要试图呼出已经在运行的微信实例，启用--multiple选项时此项目自动启用。默认: 不设置；环境变量: WECHAT_NO_CALLOUT'\
+                    'multiple          ' '在微信已在运行的情况下进行多开。默认: 不设置；环境变量: MULTIPLE_INSTANCE;'\
                     'help' ''
                 echo
                 echo "命令行参数比环境变量优先级更高，如果命令行参数与环境变量皆为空，则使用默认值"
@@ -274,7 +283,8 @@ applet_start() {
                     'bind [custom bind]' 'Custom bindings, could be specified multiple times, absolute or relative to user home, as environment: WECHAT_CUSTOM_BINDS (colon ":" seperated like PATH)' \
                     'binds-config [file]' 'Path to text file that contains one --bind value per line, default: ~/.config/wechat-universal/binds.list, as environment: WECHAT_CUSTOM_BINDS_CONFIG'\
                     'ime [input method]' 'Apply IME-specific workaround, support: fcitx (also for 5), ibus, default: auto, as environment: WECHAT_IME_WORKAROUND'\
-                    'no-callout        ' 'do not try to call out an already running WeChat instance, used in combination with --data to create more than one WeChat instances, default: not set, as environment: WECHAT_NO_CALLOUT'\
+                    'no-callout        ' 'do not try to call out an already running WeChat instance, this is automatically enabled when the --multiple option is enabled. default: not set, as environment: WECHAT_NO_CALLOUT'\
+                    'multiple          ' 'Perform multiple instance opening when WeChat is already running. default: not set, as environment: MULTIPLE_INSTANCE'\
                     'help' ''
                 echo
                 echo "Arguments take priority over environment, if both argument and environment are empty, the default value would be used"
