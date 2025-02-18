@@ -78,10 +78,6 @@ try_start() {
     WECHAT_FILES_DIR="${WECHAT_DATA_DIR}/xwechat_files"
     WECHAT_HOME_DIR="${WECHAT_DATA_DIR}/home"
 
-    if [[ -n "${MULTIPLE_INSTANCE}" ]];then
-        rm -f "${WECHAT_HOME_DIR}/.xwechat/lock/lock.ini"
-    fi
-
     # Runtime folder setup
     XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-$(xdg-user-dir RUNTIME)}"
     if [[ -z "${XDG_RUNTIME_DIR}" ]]; then
@@ -224,6 +220,12 @@ try_start() {
         --ro-bind "${DBUS_SESSION_BUS_PATH}"{,}
         --ro-bind "${XDG_RUNTIME_DIR}/pulse"{,}
     )
+
+    if [[ -n "${MULTIPLE_INSTANCE}" ]];then
+        BWRAP_ARGS+=(
+            --tmpfs "${HOME}/.xwechat"
+        )
+    fi
 
     exec bwrap "${BWRAP_ARGS[@]}" "${BWRAP_CUSTOM_BINDS[@]}" "${BWRAP_DEV_BINDS[@]}" /opt/wechat-universal/wechat "$@"
     echo "Error: Failed to exec bwrap, rerun this script with 'bash -x $0' to show the full command history"
