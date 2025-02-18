@@ -222,9 +222,17 @@ try_start() {
     )
 
     if [[ -n "${MULTIPLE_INSTANCE}" ]];then
-        BWRAP_ARGS+=(
-            --tmpfs "${HOME}/.xwechat"
-        )
+        if [[ "${MULTIPLE_INSTANCE}" == "auto" ]]; then
+            BWRAP_ARGS+=(
+                --tmpfs "${HOME}/.xwechat"
+            )
+        else
+            _INSTANCE_RUNTIME_DIR="${WECHAT_HOME_DIR}/.xwechat.$(printf '%s' ${MULTIPLE_INSTANCE} |md5sum|awk '{print $1}')"
+            mkdir -p "${_INSTANCE_RUNTIME_DIR}"
+            BWRAP_ARGS+=(
+                --bind "${_INSTANCE_RUNTIME_DIR}" "${HOME}/.xwechat"
+            )
+        fi
     fi
 
     exec bwrap "${BWRAP_ARGS[@]}" "${BWRAP_CUSTOM_BINDS[@]}" "${BWRAP_DEV_BINDS[@]}" /opt/wechat-universal/wechat "$@"
@@ -261,7 +269,12 @@ applet_start() {
             ;;
         '--multiple')
             WECHAT_NO_CALLOUT='yes'
-            MULTIPLE_INSTANCE='yes'
+            if [[ -z $2 ]];then
+                MULTIPLE_INSTANCE='auto'
+            else
+                MULTIPLE_INSTANCE="$2"
+                shift
+            fi
             ;;
         '--help')
             if [[ "${LANG}" == zh_CN* ]]; then
