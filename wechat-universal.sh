@@ -227,10 +227,10 @@ try_start() {
                 --tmpfs "${HOME}/.xwechat"
             )
         else
-            _INSTANCE_RUNTIME_DIR="${WECHAT_HOME_DIR}/.xwechat.$(printf '%s' ${MULTIPLE_INSTANCE} |md5sum|awk '{print $1}')"
-            mkdir -p "${_INSTANCE_RUNTIME_DIR}"
+            _INSTANCE_RUNTIME_DIR="${WECHAT_HOME_DIR}/.multi_xwechat_instance/$(printf '%s' ${MULTIPLE_INSTANCE} |md5sum|awk '{print $1}')"
+            mkdir -p "${_INSTANCE_RUNTIME_DIR}/.xwechat"
             BWRAP_ARGS+=(
-                --bind "${_INSTANCE_RUNTIME_DIR}" "${HOME}/.xwechat"
+                --bind "${_INSTANCE_RUNTIME_DIR}/.xwechat" "${HOME}/.xwechat"
             )
         fi
     fi
