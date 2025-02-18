@@ -225,16 +225,19 @@ try_start() {
         if [[ "${MULTIPLE_INSTANCE}" == "auto" ]]; then
             BWRAP_ARGS+=(
                 --tmpfs "${HOME}/.xwechat"
+                --tmpfs "${WECHAT_FILES_DIR}/all_users"
+                --tmpfs "${WECHAT_FILES_DIR}/WMPF"
             )
         else
             _INSTANCE_RUNTIME_DIR="${WECHAT_HOME_DIR}/.multi_xwechat_instance/$(printf '%s' ${MULTIPLE_INSTANCE} |md5sum|awk '{print $1}')"
-            mkdir -p "${_INSTANCE_RUNTIME_DIR}/.xwechat"
+            mkdir -p "${_INSTANCE_RUNTIME_DIR}/"{.xwechat,xwechat_files/all_users/config,xwechat_files/WMPF}
             BWRAP_ARGS+=(
                 --bind "${_INSTANCE_RUNTIME_DIR}/.xwechat" "${HOME}/.xwechat"
+                --bind "${_INSTANCE_RUNTIME_DIR}/xwechat_files/all_users" "${WECHAT_FILES_DIR}/all_users"
+                --bind "${_INSTANCE_RUNTIME_DIR}/xwechat_files/WMPF" "${WECHAT_FILES_DIR}/WMPF"
             )
         fi
     fi
-
     exec bwrap "${BWRAP_ARGS[@]}" "${BWRAP_CUSTOM_BINDS[@]}" "${BWRAP_DEV_BINDS[@]}" /opt/wechat-universal/wechat "$@"
     echo "Error: Failed to exec bwrap, rerun this script with 'bash -x $0' to show the full command history"
     return 1
