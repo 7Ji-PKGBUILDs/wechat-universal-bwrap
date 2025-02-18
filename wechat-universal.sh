@@ -151,9 +151,23 @@ try_start() {
     mkdir -p "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}"
     ln -snf "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}/xwechat_files"
 
-    BWRAP_ARGS=(
-        # Drop privileges
-        --unshare-all
+    BWRAP_ARGS=()
+
+    if [[ -n "${MULTIPLE_INSTANCE}" ]];then
+        BWRAP_ARGS+=(
+            --unshare-user-try
+            --unshare-ipc
+            --unshare-uts 
+            --unshare-cgroup-try
+        )
+    else
+        BWRAP_ARGS+=(
+            # Drop privileges
+            --unshare-all
+        )
+    fi
+
+    BWRAP_ARGS+=(
         --share-net
         --cap-drop ALL
         --die-with-parent
