@@ -78,10 +78,6 @@ try_start() {
     WECHAT_FILES_DIR="${WECHAT_DATA_DIR}/xwechat_files"
     WECHAT_HOME_DIR="${WECHAT_DATA_DIR}/home"
 
-    if [[ -n "${MULTIPLE_INSTANCE}" ]];then
-        rm -f "${WECHAT_HOME_DIR}/.xwechat/lock/lock.ini"
-    fi
-
     # Runtime folder setup
     XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-$(xdg-user-dir RUNTIME)}"
     if [[ -z "${XDG_RUNTIME_DIR}" ]]; then
@@ -155,9 +151,23 @@ try_start() {
     mkdir -p "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}"
     ln -snf "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}/xwechat_files"
 
-    BWRAP_ARGS=(
-        # Drop privileges
-        --unshare-all
+    BWRAP_ARGS=()
+
+    if [[ -n "${MULTIPLE_INSTANCE}" ]];then
+        BWRAP_ARGS+=(
+            --unshare-user-try
+            --unshare-ipc
+            --unshare-uts 
+            --unshare-cgroup-try
+        )
+    else
+        BWRAP_ARGS+=(
+            # Drop privileges
+            --unshare-all
+        )
+    fi
+
+    BWRAP_ARGS+=(
         --share-net
         --cap-drop ALL
         --die-with-parent
@@ -225,6 +235,23 @@ try_start() {
         --ro-bind "${XDG_RUNTIME_DIR}/pulse"{,}
     )
 
+    if [[ -n "${MULTIPLE_INSTANCE}" ]];then
+        if [[ "${MULTIPLE_INSTANCE}" == "auto" ]]; then
+            BWRAP_ARGS+=(
+                --tmpfs "${HOME}/.xwechat"
+                --tmpfs "${WECHAT_FILES_DIR}/all_users"
+                --tmpfs "${WECHAT_FILES_DIR}/WMPF"
+            )
+        else
+            _INSTANCE_RUNTIME_DIR="${WECHAT_HOME_DIR}/.multi_xwechat_instance/$(printf '%s' ${MULTIPLE_INSTANCE} |md5sum|awk '{print $1}')"
+            mkdir -p "${_INSTANCE_RUNTIME_DIR}/"{.xwechat,xwechat_files/all_users/config,xwechat_files/WMPF}
+            BWRAP_ARGS+=(
+                --bind "${_INSTANCE_RUNTIME_DIR}/.xwechat" "${HOME}/.xwechat"
+                --bind "${_INSTANCE_RUNTIME_DIR}/xwechat_files/all_users" "${WECHAT_FILES_DIR}/all_users"
+                --bind "${_INSTANCE_RUNTIME_DIR}/xwechat_files/WMPF" "${WECHAT_FILES_DIR}/WMPF"
+            )
+        fi
+    fi
     exec bwrap "${BWRAP_ARGS[@]}" "${BWRAP_CUSTOM_BINDS[@]}" "${BWRAP_DEV_BINDS[@]}" /opt/wechat-universal/wechat "$@"
     echo "Error: Failed to exec bwrap, rerun this script with 'bash -x $0' to show the full command history"
     return 1
@@ -259,7 +286,12 @@ applet_start() {
             ;;
         '--multiple')
             WECHAT_NO_CALLOUT='yes'
-            MULTIPLE_INSTANCE='yes'
+            if [[ -z $2 ]];then
+                MULTIPLE_INSTANCE='auto'
+            else
+                MULTIPLE_INSTANCE="$2"
+                shift
+            fi
             ;;
         '--help')
             if [[ "${LANG}" == zh_CN* ]]; then
