@@ -151,17 +151,15 @@ try_start() {
     mkdir -p "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}"
     ln -snf "${WECHAT_FILES_DIR}" "${WECHAT_HOME_DIR}/xwechat_files"
 
-    BWRAP_ARGS=()
-
-    if [[ -n "${MULTIPLE_INSTANCE}" ]];then
-        BWRAP_ARGS+=(
+    if [[ "${WECHAT_MULTIPLE_INSTANCE}" ]];then
+        BWRAP_ARGS=(
             --unshare-user-try
             --unshare-ipc
-            --unshare-uts 
+            --unshare-uts
             --unshare-cgroup-try
         )
     else
-        BWRAP_ARGS+=(
+        BWRAP_ARGS=(
             # Drop privileges
             --unshare-all
         )
@@ -235,23 +233,36 @@ try_start() {
         --ro-bind "${XDG_RUNTIME_DIR}/pulse"{,}
     )
 
-    if [[ -n "${MULTIPLE_INSTANCE}" ]];then
-        if [[ "${MULTIPLE_INSTANCE}" == "auto" ]]; then
-            BWRAP_ARGS+=(
-                --tmpfs "${HOME}/.xwechat"
-                --tmpfs "${WECHAT_FILES_DIR}/all_users"
-                --tmpfs "${WECHAT_FILES_DIR}/WMPF"
-            )
-        else
-            _INSTANCE_RUNTIME_DIR="${WECHAT_HOME_DIR}/.multi_xwechat_instance/$(printf '%s' ${MULTIPLE_INSTANCE} |md5sum|awk '{print $1}')"
-            mkdir -p "${_INSTANCE_RUNTIME_DIR}/"{.xwechat,xwechat_files/all_users/config,xwechat_files/WMPF}
-            BWRAP_ARGS+=(
-                --bind "${_INSTANCE_RUNTIME_DIR}/.xwechat" "${HOME}/.xwechat"
-                --bind "${_INSTANCE_RUNTIME_DIR}/xwechat_files/all_users" "${WECHAT_FILES_DIR}/all_users"
-                --bind "${_INSTANCE_RUNTIME_DIR}/xwechat_files/WMPF" "${WECHAT_FILES_DIR}/WMPF"
-            )
-        fi
-    fi
+    case "${WECHAT_MULTIPLE_INSTANCE}" in
+    '')
+        # Single
+        :
+        ;;
+    'auto')
+        # Multiple: tmpfs throwaway
+        echo "Multiple instance: using throwaway tmpfs data dir"
+        BWRAP_ARGS+=(
+            --tmpfs "${HOME}/.xwechat"
+            --tmpfs "${WECHAT_FILES_DIR}/all_users"
+            --tmpfs "${WECHAT_FILES_DIR}/WMPF"
+        )
+        ;;
+    *)
+        # Multiple: persistent
+        local INSTANCE_DATA_DIR=$(echo -n "${WECHAT_MULTIPLE_INSTANCE}" | md5sum)
+        INSTANCE_DATA_DIR="${INSTANCE_DATA_DIR::32}"
+        echo "Multiple instance: name '${WECHAT_MULTIPLE_INSTANCE}' => id '${INSTANCE_DATA_DIR}'"
+        INSTANCE_DATA_DIR="${WECHAT_HOME_DIR}/.multi_xwechat_instance/${INSTANCE_DATA_DIR}"
+        echo "Multiple instance: data dir is at '${INSTANCE_DATA_DIR}'"
+        mkdir -p "${INSTANCE_DATA_DIR}"/{.xwechat,xwechat_files/all_users/config,xwechat_files/WMPF}
+        BWRAP_ARGS+=(
+            --bind "${INSTANCE_DATA_DIR}/.xwechat" "${HOME}/.xwechat"
+            --bind "${INSTANCE_DATA_DIR}/xwechat_files/all_users" "${WECHAT_FILES_DIR}/all_users"
+            --bind "${INSTANCE_DATA_DIR}/xwechat_files/WMPF" "${WECHAT_FILES_DIR}/WMPF"
+        )
+        ;;
+    esac
+
     exec bwrap "${BWRAP_ARGS[@]}" "${BWRAP_CUSTOM_BINDS[@]}" "${BWRAP_DEV_BINDS[@]}" /opt/wechat-universal/wechat "$@"
     echo "Error: Failed to exec bwrap, rerun this script with 'bash -x $0' to show the full command history"
     return 1
@@ -264,7 +275,7 @@ applet_start() {
     fi
     # Parsing arguments, for any option, argument > environment
     while (( $# )); do
-        case "$1" in 
+        case "$1" in
         '--data')
             WECHAT_DATA_DIR="$2"
             shift
@@ -286,37 +297,44 @@ applet_start() {
             ;;
         '--multiple')
             WECHAT_NO_CALLOUT='yes'
-            if [[ -z $2 ]];then
-                MULTIPLE_INSTANCE='auto'
-            else
-                MULTIPLE_INSTANCE="$2"
+            case "$2" in
+            ''|'auto')
+                WECHAT_MULTIPLE_INSTANCE='auto'
                 shift
-            fi
+                ;;
+            --*)
+                WECHAT_MULTIPLE_INSTANCE='auto'
+                ;;
+            *)
+                WECHAT_MULTIPLE_INSTANCE="$2"
+                shift
+                ;;
+            esac
             ;;
         '--help')
             if [[ "${LANG}" == zh_CN* ]]; then
                 echo "$0 (--data [微信数据文件夹]) (--bind [自定义绑定挂载] (--bind ...))) (--ime [输入法]) (--help)"
-                echo 
+                echo
                 printf '    --%s\t%s\n' \
                     'data [微信数据文件夹]' '微信数据文件夹的路径，绝对路径，或相对于用户HOME的相对路径。 默认：~/文档/Wechat_Data；环境变量: WECHAT_DATA_DIR' \
                     'bind [自定义绑定挂载]' '自定义的绑定挂载，可被声明多次，绝对路径，或相对于用户HOME的相对路径。环境变量: WECHAT_CUSTOM_BINDS, （用冒号:分隔，与PATH相似）' \
                     'binds-config [文件]' '以每行一个的方式列明应被绑定挂载的路径的纯文本配置文件，每行定义与--bind一致。默认：~/.config/wechat-universal/binds.list；环境变量：WECHAT_CUSTOM_BINDS_CONFIG' \
                     'ime [输入法名称或特殊值]' '应用输入法对应环境变量修改，可支持：fcitx (不论是否为5), ibus，特殊值：none不应用，auto自动判断。默认: auto；环境变量: WECHAT_IME_WORKAROUND'\
-                    'no-callout        ' '不要试图呼出已经在运行的微信实例，启用--multiple选项时此项目自动启用。默认: 不设置；环境变量: WECHAT_NO_CALLOUT'\
-                    'multiple          ' '在微信已在运行的情况下进行多开。默认: 不设置；环境变量: MULTIPLE_INSTANCE;'\
+                    'no-callout        ' '不要试图呼出已经在运行的微信实例。默认: 不设置；环境变量: WECHAT_NO_CALLOUT'\
+                    'multiple [name]   ' '创建全新的微信实例，命名为[name]，即使微信已在运行，从而进行多开；强制启用--no-callout。特殊值：留空（仅参数）或auto生成一次性tmpfs数据文件夹；环境变量: WECHAT_MULTIPLE_INSTANCE'\
                     'help' ''
                 echo
                 echo "命令行参数比环境变量优先级更高，如果命令行参数与环境变量皆为空，则使用默认值"
             else
                 echo "$0 (--data [wechat data]) (--bind [custom bind] (--bind ...))) (--ime [ime]) (--help)"
-                echo 
+                echo
                 printf '    --%s\t%s\n' \
                     'data [wechat data]' 'Path to Wechat_Data folder, absolute or relative to user home, default: ~/Documents/Wechat_Data, as environment: WECHAT_DATA_DIR' \
                     'bind [custom bind]' 'Custom bindings, could be specified multiple times, absolute or relative to user home, as environment: WECHAT_CUSTOM_BINDS (colon ":" seperated like PATH)' \
                     'binds-config [file]' 'Path to text file that contains one --bind value per line, default: ~/.config/wechat-universal/binds.list, as environment: WECHAT_CUSTOM_BINDS_CONFIG'\
                     'ime [input method]' 'Apply IME-specific workaround, support: fcitx (also for 5), ibus, default: auto, as environment: WECHAT_IME_WORKAROUND'\
-                    'no-callout        ' 'do not try to call out an already running WeChat instance, this is automatically enabled when the --multiple option is enabled. default: not set, as environment: WECHAT_NO_CALLOUT'\
-                    'multiple          ' 'Perform multiple instance opening when WeChat is already running. default: not set, as environment: MULTIPLE_INSTANCE'\
+                    'no-callout        ' 'do not try to call out an already running WeChat instance. default: not set, as environment: WECHAT_NO_CALLOUT'\
+                    'multiple [name]' 'Create a new, individual instance even if WeChat is already running, naming it as [name], useful when you want to keep multiple WeChat accounts online on a single host, enables --no-callout implicitly. special: (leave empty as argument or) auto, to generate the data dir in a throwaway tmpfs. default: not set, as environment: WECHAT_MULTIPLE_INSTANCE'\
                     'help' ''
                 echo
                 echo "Arguments take priority over environment, if both argument and environment are empty, the default value would be used"
@@ -366,9 +384,9 @@ applet_dde() {
     if [[ "${item}" ]]; then
         local path object target
         path=$(readlink -f -- "${item}") # Resolve this to absolute path that's same across host / guest
-        echo "Fake deepin file manager: dbus-send to open '${path}' in file manager" 
-        if [[ -d "${path}" ]]; then 
-            # WeChat pass both files and folders in the same way, if we use ShowItems for folders, 
+        echo "Fake deepin file manager: dbus-send to open '${path}' in file manager"
+        if [[ -d "${path}" ]]; then
+            # WeChat pass both files and folders in the same way, if we use ShowItems for folders,
             # it would open that folder's parent folder, which is not right.
             object=ShowFolders
             target=folders
