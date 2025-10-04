@@ -1,15 +1,15 @@
 # Maintainer: 7Ji <pugokushin at gmail dot com>
 # Maintainer: leaeasy <leaeasy at gmail dot com>
-# Maintainer: devome <evinedeng at hotmail dot com>
+# Contributor: devome <evinedeng at hotmail dot com>
 
 _pkgname=wechat-universal
 pkgname=${_pkgname}-bwrap
-pkgver=4.0.1.11
-pkgrel=3
+pkgver=4.1.0.10
+pkgrel=1
 pkgdesc="WeChat (Universal) with bwrap sandbox"
 arch=('x86_64' 'aarch64' 'loong64')
 url='https://linux.weixin.qq.com/'
-license=('proprietary' 'GPLv3') # GPLv3 as desktop-app was statically linked-in, refer: https://aur.archlinux.org/packages/wechat-universal-bwrap#comment-964013
+license=('LicenseRef-wechat-license')
 install="${_pkgname}".install
 provides=("${_pkgname}")
 conflicts=("${_pkgname}")
@@ -48,6 +48,7 @@ source=(
     "${_pkgname}.sh"
     "${_pkgname}.desktop"
     "${_lib_uos}".{c,Makefile}
+    'wechat-license'
 )
 
 _upstream_name='wechat'
@@ -65,16 +66,17 @@ sha256sums=(
     '0563472cf2c74710d1fe999d397155f560d3ed817e04fd9c35077ccb648e1880'
     'fc3ce9eb8dee3ee149233ebdb844d3733b2b2a8664422d068cf39b7fb08138f8'
     'f05f6f907898740dab9833c1762e56dbc521db3c612dd86d2e2cd4b81eb257bf'
+    '898ebc397583d111db9a337e9d09aaee2f795fcd720e65cab5ce0e92efcd8f10'
 )
 
 sha256sums_x86_64=(
-    '16410e0ca7895e5aa375282de5e48b2d5fcb958b063de6b2dcfd02bed190cc01'
+    '869a8156318e2275237c280a637cb86ce7bd427ddb95864699b21c7f3ce64a29'
 )
 sha256sums_aarch64=(
-    '59805ad7335de5ebb1fd5748d19b2f39761a085a45be30906810756d066277bc'
+    '32f4116a6964f570ba2441046a9094fb5b726398bead4e91fedee52a5215b351'
 )
 sha256sums_loong64=(
-    'f6df1547bf93f6f0817ae4845227cd2917fda414f3255088bb6961e064c7b112'
+    '92d1acfeb7d160cc22fc534b858d7b793e0a473ca2cfbdd54d9f6cbd5568ec6c'
 )
 
 prepare() {
@@ -145,4 +147,7 @@ package() {
 
     echo 'Installing desktop files...'
     install -Dm644 "${_pkgname}.desktop" "${pkgdir}/usr/share/applications/${_pkgname}.desktop"
+
+    echo 'Installing license...'
+    install -Dm644 {,"${pkgdir}/usr/share/license/${_pkgname}/"}wechat-license
 }
