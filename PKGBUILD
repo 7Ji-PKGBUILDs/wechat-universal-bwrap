@@ -149,5 +149,5 @@ package() {
     install -Dm644 "${_pkgname}.desktop" "${pkgdir}/usr/share/applications/${_pkgname}.desktop"
 
     echo 'Installing license...'
-    install -Dm644 {,"${pkgdir}/usr/share/license/${_pkgname}/"}wechat-license
+    install -Dm644 {,"${pkgdir}/usr/share/licenses/${_pkgname}/"}wechat-license
 }
