@@ -205,10 +205,11 @@ try_start() {
 
         # /tmp
         --tmpfs /tmp
+        --ro-bind-try /tmp/.X11-unix{,} # haayuya suggested this fix on Hyprland: [1] https://aur.archlinux.org/packages/wechat-universal-bwrap#comment-1046129 [2] https://github.com/hyprwm/Hyprland/pull/8874
 
         # /opt
         --ro-bind /opt/wechat-universal{,}
-        --ro-bind-try /opt/lol{,} # Loong New World (WeChat) on Loong Old World (LoongArchLinux)
+        --ro-bind-try /opt/lol{,} # Loong Old World (WeChat) on Loong New World (LoongArchLinux)
 
         # license fixups in various places
         --ro-bind {/usr/lib/wechat-universal,}/usr/lib/license
