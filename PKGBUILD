@@ -119,7 +119,7 @@ build() {
 }
 
 package() {
-    echo 'Popupating pkgdir with earlier extracted data...'
+    echo 'Populating pkgdir with earlier extracted data...'
     mkdir -p "${pkgdir}"/opt
     cp -r --preserve=mode "${_upstream_name}" "${pkgdir}/opt/${_pkgname}"
 
