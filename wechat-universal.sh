@@ -74,7 +74,7 @@ try_start() {
         fi
         WECHAT_DATA_DIR="${XDG_DOCUMENTS_DIR}/WeChat_Data"
     fi
-    echo "Using '${WECHAT_DATA_DIR}' as Wechat Data folder"
+    echo "Using '${WECHAT_DATA_DIR}' as WeChat Data folder"
     WECHAT_FILES_DIR="${WECHAT_DATA_DIR}/xwechat_files"
     WECHAT_HOME_DIR="${WECHAT_DATA_DIR}/home"
 
