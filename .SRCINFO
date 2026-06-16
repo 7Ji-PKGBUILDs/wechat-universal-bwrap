@@ -1,7 +1,7 @@
 pkgbase = wechat-universal-bwrap
 	pkgdesc = WeChat (Universal) with bwrap sandbox
 	pkgver = 4.1.1.7
-	pkgrel = 1
+	pkgrel = 2
 	url = https://linux.weixin.qq.com/
 	install = wechat-universal.install
 	arch = x86_64
@@ -42,7 +42,7 @@ pkgbase = wechat-universal-bwrap
 	source = libuosdevicea.c
 	source = libuosdevicea.Makefile
 	source = wechat-license
-	sha256sums = 05aa21a0b729b2184c5bb88c45fc832f15e957b81f711a59b19f33d60041cdb8
+	sha256sums = 7ef002c45bf89d3f5dd02045c327a802b57cb2b57b65406f17f68baab967e407
 	sha256sums = 0563472cf2c74710d1fe999d397155f560d3ed817e04fd9c35077ccb648e1880
 	sha256sums = fc3ce9eb8dee3ee149233ebdb844d3733b2b2a8664422d068cf39b7fb08138f8
 	sha256sums = f05f6f907898740dab9833c1762e56dbc521db3c612dd86d2e2cd4b81eb257bf
